@@ -9,15 +9,14 @@ output: html_document
 library(tidyverse)
 library(magrittr)
 library(mice)
-library(boot)
 library(MASS)
-library(bootImpute)
 
-library(rsample)
+library(boot)
+library(rsample) # rsample might give more flexibility with mids. 
 ```
 
 # Toy Example 
-```{r}
+```{r, cache=T}
 set.seed(971423)
 
 cor_mat <- matrix(c(1, 0.5, 0.5, 
@@ -66,23 +65,27 @@ uncon_model <- with(uncon_imp, lm(V1 ~ V2 + V3)) %>%
   summary() %>%
   mutate(variance = std.error^2)
 
-# MI boot Rubin
+# MI boot Rubin 
+# Toy example, need for loop to incorporate the other m datasets. 
+# map could also be an alternative
 bootstrap_samples <-
   bootstraps(as.data.frame(complete(uncon_imp, "all")$"1"),
-             times = 1e3,
+             times = 1E5,
              apparent = TRUE) %>%
-  mutate(model = map(splits, ~ lm(V1 ~ V2,
+  mutate(model = map(splits, ~ lm(V1 ~ V2 + V3,
                                   data = .)),
          coef_inf = map(model, tidy))
 
 
-tuition_coefs <- x %>%
-  unnest(coef_inf)
+model_coefs <- bootstrap_samples %>%
+  unnest(coef_inf) %>%
+  filter(term == "V2") %>%
+  mutate(variance = std.error^2)
 
-tuition_coefs %>%
-  ggplot(aes(estimate)) +
+model_coefs %>%
+  ggplot(aes(variance)) +
   geom_histogram(alpha = .7) +
-  ggtitle("Distribution of Estimated Slope") +
+  ggtitle("Distribution of Estimated Variance of B_{V2}") +
   xlab("Estimate") +
   ylab("Frequency") +
   theme_linedraw() +
@@ -90,5 +93,7 @@ tuition_coefs %>%
     axis.title = element_text(size = 14, face = "bold"),
     plot.title = element_text(size = 20, face = "bold")
   )
+
+
 ```
 
