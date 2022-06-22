@@ -70,7 +70,7 @@ uncon_model <- with(uncon_imp, lm(V1 ~ V2 + V3)) %>%
 # map could also be an alternative
 bootstrap_samples <-
   bootstraps(as.data.frame(complete(uncon_imp, "all")$"1"),
-             times = 1E5,
+             times = 1E4,
              apparent = TRUE) %>%
   mutate(model = map(splits, ~ lm(V1 ~ V2 + V3,
                                   data = .)),
@@ -83,17 +83,21 @@ model_coefs <- bootstrap_samples %>%
   mutate(variance = std.error^2)
 
 model_coefs %>%
-  ggplot(aes(variance)) +
-  geom_histogram(alpha = .7) +
+  ggplot(aes(x = variance, )) +
+  geom_density(alpha = .7) +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(model_coefs$variance),
+                            sd = sd(model_coefs$variance)),
+                col = "#1b98e0",
+                size = 2) + 
   ggtitle("Distribution of Estimated Variance of B_{V2}") +
   xlab("Estimate") +
   ylab("Frequency") +
-  theme_linedraw() +
-  theme(
-    axis.title = element_text(size = 14, face = "bold"),
-    plot.title = element_text(size = 20, face = "bold")
-  )
+  theme_minimal()
 
 
 ```
 
+# Current Questions 
+
+  * Authors compare all methods to the $var(\beta_{V2})$ estimated by the congenial imputation model and Rubin's rules for variance. Since data is simulated, could we not compare all methods to the $var(\beta_{V2})$ obtained by fitting the analysis model to the complete dataset (prior to amputation). 
