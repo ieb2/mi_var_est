@@ -4,27 +4,61 @@ author: "Ihsan E. Buker"
 date: "`r Sys.Date()`"
 output: html_document
 ---
+# Dependencies 
+```{r}
+library(tidyverse)
+library(magrittr)
+library(mice)
+library(boot)
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(fastDummies)
+library(MASS)
 ```
 
-## R Markdown
+# Toy Example 
+```{r}
+set.seed(971423)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+cor_mat <- matrix(c(1, 0.5, 0.5, 
+                    0.5, 1, 0.5, 
+                    0.5, 0.5, 1), nrow = 3, ncol = 3)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+mean_vec <- c(1, 5, 10)
 
-```{r cars}
-summary(cars)
+data_complete <- mvrnorm(100, mu = mean_vec, Sigma = cor_mat)
+
+data_w_missing <- ampute(data_complete, prop = 0.3, mech = "MAR", patterns = c(0, 1, 1))$amp
+
+# V1 is an outcome variable with 30% MAR. Covariates are fully observed. 
+
+# The analysis model is V1 ~ V2 + V3 + epsilon 
+
+# Congenial imputation model 
+congenial_imputation_model <- make.predictorMatrix(data_w_missing) %>%
+  as.matrix()
+
+# Uncongenial imputation model 
+uncongenial_imputation_model <- make.predictorMatrix(data_w_missing) %>%
+  as.matrix()
+
+uncongenial_imputation_model[1, ] <- c(0,1,0)
+
+# Congenial imputation 
+con_imp <- mice(data_w_missing, method = "pmm", predictorMatrix = congenial_imputation_model)
+
+# Uncongenial imputation 
+uncon_imp <- mice(data_w_missing, method = "pmm", predictorMatrix = uncongenial_imputation_model)
+
+# Fitting analysis model 
+
+con_model <- with(con_imp, lm(V1 ~ V2 + V3)) %>%
+  pool() %>%
+  summary() %>%
+  mutate(variance = std.error^2)
+
+uncon_model <- with(uncon_imp, lm(V1 ~ V2 + V3)) %>%
+  pool() %>%
+  summary() %>%
+  mutate(variance = std.error^2)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
