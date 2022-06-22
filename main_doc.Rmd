@@ -10,9 +10,10 @@ library(tidyverse)
 library(magrittr)
 library(mice)
 library(boot)
-
-library(fastDummies)
 library(MASS)
+library(bootImpute)
+
+library(rsample)
 ```
 
 # Toy Example 
@@ -32,6 +33,7 @@ data_w_missing <- ampute(data_complete, prop = 0.3, mech = "MAR", patterns = c(0
 # V1 is an outcome variable with 30% MAR. Covariates are fully observed. 
 
 # The analysis model is V1 ~ V2 + V3 + epsilon 
+# We are interested in estimating var(beta*V2)
 
 # Congenial imputation model 
 congenial_imputation_model <- make.predictorMatrix(data_w_missing) %>%
@@ -51,14 +53,42 @@ uncon_imp <- mice(data_w_missing, method = "pmm", predictorMatrix = uncongenial_
 
 # Fitting analysis model 
 
+# Rubin's rules 
+# var(beta*V2) = 0.02020468 -> Our reference value. 
 con_model <- with(con_imp, lm(V1 ~ V2 + V3)) %>%
   pool() %>%
   summary() %>%
   mutate(variance = std.error^2)
 
+# var(beta*V2) = 0.01320681
 uncon_model <- with(uncon_imp, lm(V1 ~ V2 + V3)) %>%
   pool() %>%
   summary() %>%
   mutate(variance = std.error^2)
+
+# MI boot Rubin
+bootstrap_samples <-
+  bootstraps(as.data.frame(complete(uncon_imp, "all")$"1"),
+             times = 1e3,
+             apparent = TRUE) %>%
+  mutate(model = map(splits, ~ lm(V1 ~ V2,
+                                  data = .)),
+         coef_inf = map(model, tidy))
+
+
+tuition_coefs <- x %>%
+  unnest(coef_inf)
+
+tuition_coefs %>%
+  ggplot(aes(estimate)) +
+  geom_histogram(alpha = .7) +
+  ggtitle("Distribution of Estimated Slope") +
+  xlab("Estimate") +
+  ylab("Frequency") +
+  theme_linedraw() +
+  theme(
+    axis.title = element_text(size = 14, face = "bold"),
+    plot.title = element_text(size = 20, face = "bold")
+  )
 ```
 
