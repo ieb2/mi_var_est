@@ -66,18 +66,6 @@ uncon_model <- with(uncon_imp, lm(V1 ~ V2 + V3)) %>%
   mutate(variance = std.error^2)
 
 # MI boot Rubin 
-# Toy example, need for loop to incorporate the other m datasets. 
-# map could also be an alternative
-
-bootstrap_samples <-
-  bootstraps(as.data.frame(complete(uncon_imp, "all")$"1"),
-             times = 1E4,
-             apparent = TRUE) %>%
-  mutate(model = map(splits, ~ lm(V1 ~ V2 + V3,
-                                  data = .)),
-         coef_inf = map(model, tidy))
-
-# Attempt for m datasets -> works well, outputs list 
 bootstrap_samples_V2 <- map(complete(uncon_imp, "long") %>%
       group_split(.imp), ~bootstraps(., 
                                     times = 1E1, 
@@ -85,31 +73,47 @@ bootstrap_samples_V2 <- map(complete(uncon_imp, "long") %>%
       mutate(model = map(splits, ~lm(V1 ~ V2 + V3, data = .)), 
              coef_inf = map(model, tidy)))
 
-
-
-model_coefs_V2 <- map(bootstrap_samples_V2[[1]],
-  unnest(coef_inf) %>%
+coef_extractor <- function(x){
+  model_coefs <- x %>%
+    unnest(coef_inf) %>%
     filter(term == "V2") %>%
-    mutate(variance = std.error^2))
+    mutate(variance = std.error ^ 2)
+  
+  return(model_coefs)
+}
 
+model_coefs_V2 <- map(bootstrap_samples_V2, coef_extractor)
 
-model_coefs <- bootstrap_samples %>%
-  unnest(coef_inf) %>%
-  filter(term == "V2") %>%
-  mutate(variance = std.error^2)
+# mean var(V2) = 0.01062996
+m_mean_vars <- sapply(model_coefs_V2, function(x) mean(x$variance)) 
 
-model_coefs %>%
-  ggplot(aes(x = variance, )) +
-  geom_density(alpha = .7) +
-  stat_function(fun = dnorm,
-                args = list(mean = mean(model_coefs$variance),
-                            sd = sd(model_coefs$variance)),
-                col = "#1b98e0",
-                size = 2) + 
+model_coefs_V2_x <- mapply(cbind, model_coefs_V2, "m_mean_var" = m_mean_vars, SIMPLIFY = F)
+
+ID <- c(1,2,3,4,5)
+
+model_coefs_V2_final <- mapply(cbind, model_coefs_V2_x, "SampleID"=ID, SIMPLIFY=F)
+
+flat_list <- bind_rows(model_coefs_V2_final)
+
+flat_list %>%
+  ggplot(aes(
+    x = variance,
+    y = ..scaled..,
+    color = as.factor(SampleID),
+    fill = as.factor(SampleID)
+  )) +
+  geom_density(alpha = .3) +
   ggtitle("Distribution of Estimated Variance of B_{V2}") +
   xlab("Estimate") +
   ylab("Frequency") +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+# stat_function(fun = dnorm,
+#                 args = list(mean = mean(model_coefs_V2[[1]]$variance),
+#                             sd = sd(model_coefs_V2[[1]]$variance)),
+#                 col = "#1b98e0",
+#                 size = 2)
 
 
 ```
