@@ -66,13 +66,18 @@ uncon_model <- with(uncon_imp, lm(V1 ~ V2 + V3)) %>%
   mutate(variance = std.error^2)
 
 # MI boot Rubin 
-bootstrap_samples_V2 <- map(complete(uncon_imp, "long") %>%
-      group_split(.imp), ~bootstraps(., 
-                                    times = 1E1, 
-                                    apparent = FALSE) %>% 
-      mutate(model = map(splits, ~lm(V1 ~ V2 + V3, data = .)), 
-             coef_inf = map(model, tidy)))
+# Creates "times" bootstrap samples for each m imputed dataset. 
+# From there, applies model to each of the m_i_b_j bootstraps
 
+times = 1E3
+bootstrap_samples <- map(complete(uncon_imp, "long") %>%
+                              group_split(.imp), ~bootstraps(., 
+                                                             times = times, 
+                                                             apparent = FALSE) %>% 
+                              mutate(model = map(splits, ~lm(V1 ~ V2 + V3, data = .)), 
+                                     coef_inf = map(model, tidy)))
+
+# Function to obtain the statistics associated with term==V2, and calculate var.  
 coef_extractor <- function(x){
   model_coefs <- x %>%
     unnest(coef_inf) %>%
@@ -82,25 +87,25 @@ coef_extractor <- function(x){
   return(model_coefs)
 }
 
-model_coefs_V2 <- map(bootstrap_samples_V2, coef_extractor)
+model_coefs <- map(bootstrap_samples, coef_extractor)
 
-# mean var(V2) = 0.01062996
-m_mean_vars <- sapply(model_coefs_V2, function(x) mean(x$variance)) 
+m_mean_vars <- sapply(model_coefs, function(x) mean(x$variance)) 
 
-model_coefs_V2_x <- mapply(cbind, model_coefs_V2, "m_mean_var" = m_mean_vars, SIMPLIFY = F)
+model_coefs_w_mean <- mapply(cbind, model_coefs, "m_mean_var" = m_mean_vars, SIMPLIFY = F)
 
+# Function to calculate numerator of the variance formula 
 var_calc <- function(x){
   x %>%
-  dplyr::mutate("internal_argument" = (variance - m_mean_vars)^2)
+    dplyr::mutate("internal_argument" = ({variance - m_mean_vars})^2)
 }
 
-model_coefs_V2_z <- map(model_coefs_V2_x, var_calc)
+model_coefs_w_numerator <- map(model_coefs_w_mean, var_calc)
 
-ID <- c(1,2,3,4,5)
+ID <- c(1:(uncon_imp$m))
 
-model_coefs_V2_final <- mapply(cbind, model_coefs_V2_z, "SampleID"=ID, SIMPLIFY=F)
+model_coefs_final <- mapply(cbind, model_coefs_w_numerator, "SampleID"=ID, SIMPLIFY=F)
 
-flat_list <- bind_rows(model_coefs_V2_final)
+flat_list <- bind_rows(model_coefs_final)
 
 flat_list %>%
   ggplot(aes(
@@ -110,27 +115,15 @@ flat_list %>%
     fill = as.factor(SampleID)
   )) +
   geom_density(alpha = .3) +
-  ggtitle("Distribution of Estimated Variance of B_{V2}") +
+  ggtitle(paste("Distribution of Estimated Variance of B_{V2}: B =", times, sep = "")) +
   xlab("Estimate") +
   ylab("Frequency") +
   theme_minimal() +
   theme(legend.title = element_blank())
 
-# stat_function(fun = dnorm,
-#                 args = list(mean = mean(model_coefs_V2[[1]]$variance),
-#                             sd = sd(model_coefs_V2[[1]]$variance)),
-#                 col = "#1b98e0",
-#                 size = 2)
-
-
-
 p <- flat_list %>%
   dplyr::select(SampleID, internal_argument) %>%
   group_split(SampleID) 
 
-lapply(p, function(x) sum(x$internal_argument)/99)
+lapply(p, function(x) sum(x$internal_argument)/times-1)
 ```
-
-# Current Questions 
-
-  * Authors compare all methods to the $var(\beta_{V2})$ estimated by the congenial imputation model and Rubin's rules for variance. Since data is simulated, could we not compare all methods to the $var(\beta_{V2})$ obtained by fitting the analysis model to the complete dataset (prior to amputation). 
