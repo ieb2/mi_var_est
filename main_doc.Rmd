@@ -70,12 +70,17 @@ uncon_model <- with(uncon_imp, lm(V1 ~ V2 + V3)) %>%
 # From there, applies model to each of the m_i_b_j bootstraps
 
 times = 1E3
-bootstrap_samples <- map(complete(uncon_imp, "long") %>%
-                              group_split(.imp), ~bootstraps(., 
-                                                             times = times, 
-                                                             apparent = FALSE) %>% 
-                              mutate(model = map(splits, ~lm(V1 ~ V2 + V3, data = .)), 
-                                     coef_inf = map(model, tidy)))
+bootstrap_samples <- map(
+  complete(uncon_imp, "long") %>%
+    group_split(.imp),
+  ~ bootstraps(.,
+               times = times,
+               apparent = FALSE) %>%
+    mutate(
+      model = map(splits, ~ lm(V1 ~ V2 + V3, data = .)),
+      coef_inf = map(model, tidy)
+    )
+)
 
 # Function to obtain the statistics associated with term==V2, and calculate var.  
 coef_extractor <- function(x){
@@ -125,5 +130,55 @@ p <- flat_list %>%
   dplyr::select(SampleID, internal_argument) %>%
   group_split(SampleID) 
 
-lapply(p, function(x) sum(x$internal_argument)/times-1)
+sapply(p, function(x) sum(x$internal_argument)) %>%
+  mean()
+
+# MI boot pooled percentile
+se <- function(x) sqrt(var(x) / length(x))
+
+# var(theta_2) = 0.009357518
+var_est_theta_2 <- sapply(p, function(x) sum(x$internal_argument)) %>%
+  mean()
+
+# se(theta_2) = 0.001376763
+se_theta_2 <- sapply(p, function(x) sum(x$internal_argument)) %>%
+  se()
+
+UB <- var_est_theta_2 + 1.96*se_theta_2
+LB <- var_est_theta_2 - 1.96*se_theta_2
+
+print(c(UB, LB))
+
+# Boot MI percentile
+
+# 1) B bootstraps are generated from the observed data. 
+# 2) Each of the b=1...B datasets are imputed M times. 
+# 3) Rubin's rules are used to obtain point estimates of theta
+# 4) Bootstrap confidence interval of the estimator is obtained
+library(bootImpute)
+
+boot_impute <- bootMice(data_w_missing, nBoot = 100, nImp = 2, nCores = 4, seed = 971423)
+
+x <- map(boot_impute, ~tidy(lm(V1 ~ V2 + V3, data = .)))
+
+res <- c()
+for(i in 1:length(x)){
+  res[[i]] <- x[[i]] %>%
+  dplyr::filter(term=="V2") %>%
+  mutate(variance = std.error^2)
+}
+
+flat_models <- bind_rows(res, .id = "column_label")
+
+flat_models$variance %>%
+  mean()
+
+lm(V1 ~ V2 + V3, data = as.data.frame(data_complete)) %>%
+  summary()
 ```
+
+# Rubin's method with the uncongenial imputation model is more accurate than with the congenial imputation model, how? 
+
+# Why is the Boot MI percentile severely (1/10) underestimating the variance compared to other methods? 
+
+# 
