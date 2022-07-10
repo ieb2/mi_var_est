@@ -4,15 +4,20 @@ author: "Ihsan E. Buker"
 date: "`r Sys.Date()`"
 output: html_document
 ---
+# Updates 
+
 # Dependencies 
 ```{r}
 library(tidyverse)
 library(magrittr)
 library(mice)
 library(MASS)
+library(sjPlot)
+library(sjmisc)
+library(ggplot2)
 
 library(boot)
-library(rsample) # rsample might give more flexibility with mids. 
+library(rsample)
 ```
 
 # Toy Example 
@@ -23,61 +28,86 @@ cor_mat <- matrix(c(1, 0.5, 0.5,
                     0.5, 1, 0.5, 
                     0.5, 0.5, 1), nrow = 3, ncol = 3)
 
-mean_vec <- c(1, 5, 10)
+mean_vec <- c(1, 1, 1)
 
-data_complete <- mvrnorm(100, mu = mean_vec, Sigma = cor_mat)
+covariates <- as.data.frame(mvrnorm(100, mu = mean_vec, Sigma = cor_mat))
+covariates$V3 <- ifelse(covariates$V3 > 0, 1, 0)
 
-data_w_missing <- ampute(data_complete, prop = 0.3, mech = "MAR", patterns = c(0, 1, 1))$amp
+outcome_variable <- 0 + 
+  0.32*covariates$V1 + 
+  0.67*covariates$V2 +  
+  0.43*covariates$V3 + 
+  0.50*covariates$V2*covariates$V3 + # Interaction btwn. V2&V3
+  rnorm(100,0,1)
 
-# V1 is an outcome variable with 30% MAR. Covariates are fully observed. 
+data_complete <- cbind(outcome_variable, covariates)
+data_complete$V3 <- as.factor(data_complete$V3)
 
-# The analysis model is V1 ~ V2 + V3 + epsilon 
+fit <- lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete)
+summary(fit)
+
+# The influence of V2 on outcome var is different for values of V3
+# Two-way interaction btwn. V2*V3. 
+plot_model(fit, type = "int")
+
+data_w_missing <- ampute(data_complete, prop = 0.3, mech = "MAR", patterns = c(0, 1, 1, 1))$amp
+
+data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
+
+# "outcome_variable" is an outcome variable with 30% MAR. Covariates are fully observed. 
+
+# The analysis model is outcome_variable ~ V1 + V2 + V3
 # We are interested in estimating var(beta*V2)
+```
 
-# Congenial imputation model 
-congenial_imputation_model <- make.predictorMatrix(data_w_missing) %>%
-  as.matrix()
-
-# Uncongenial imputation model 
-uncongenial_imputation_model <- make.predictorMatrix(data_w_missing) %>%
-  as.matrix()
-
-uncongenial_imputation_model[1, ] <- c(0,1,0)
-
+```{r}
 # Congenial imputation 
-con_imp <- mice(data_w_missing, method = "pmm", predictorMatrix = congenial_imputation_model)
+part_one_con_imp <- 
+  data_w_missing %>% 
+  dplyr::filter(V3 == "0") %>%
+  mice(., method = "pmm")
 
+part_two_con_imp <- 
+  data_w_missing %>% 
+  dplyr::filter(V3 == "1") %>%
+  mice(., method = "pmm")
+
+con_imp_data <- rbind(
+  complete(part_one_con_imp, "long"),
+  complete(part_two_con_imp, "long")
+)
 # Uncongenial imputation 
-uncon_imp <- mice(data_w_missing, method = "pmm", predictorMatrix = uncongenial_imputation_model)
+uncon_imp <- mice(data_w_missing, method = "pmm")
+
+uncon_imp_data <- complete(uncon_imp, "long")
 
 # Fitting analysis model 
 
 # Rubin's rules 
-# var(beta*V2) = 0.02020468 -> Our reference value. 
-con_model <- with(con_imp, lm(V1 ~ V2 + V3)) %>%
+# var(beta*V2) = 0.02430348 -> Our reference value. 
+con_imp_data %>%
+  by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
   pool() %>%
   summary() %>%
-  mutate(variance = std.error^2)
+  mutate(variance = std.error^2) 
 
-# var(beta*V2) = 0.01320681
-uncon_model <- with(uncon_imp, lm(V1 ~ V2 + V3)) %>%
+# var(beta*V2) = 0.03304946
+uncon_imp_data %>%
+  by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
   pool() %>%
   summary() %>%
-  mutate(variance = std.error^2)
+  mutate(variance = std.error^2) 
 
 # MI boot Rubin 
-# Creates "times" bootstrap samples for each m imputed dataset. 
-# From there, applies model to each of the m_i_b_j bootstraps
-
-times = 1E3
+times = 1E2
 bootstrap_samples <- map(
-  complete(uncon_imp, "long") %>%
+  uncon_imp_data %>%
     group_split(.imp),
   ~ bootstraps(.,
                times = times,
                apparent = FALSE) %>%
     mutate(
-      model = map(splits, ~ lm(V1 ~ V2 + V3, data = .)),
+      model = map(splits, ~ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)),
       coef_inf = map(model, tidy)
     )
 )
@@ -112,6 +142,15 @@ model_coefs_final <- mapply(cbind, model_coefs_w_numerator, "SampleID"=ID, SIMPL
 
 flat_list <- bind_rows(model_coefs_final)
 
+Vw <- sum(unlist(as.vector(flat_list %>%
+                       dplyr::select(variance)))) / 999
+
+Vb <- sum(unlist(as.vector(flat_list %>%
+  dplyr::select(internal_argument)))) / {uncon_imp$m-1}
+
+Vtotal <- Vw + Vb + Vb/{uncon_imp$m-1}
+  
+
 flat_list %>%
   ggplot(aes(
     x = variance,
@@ -129,6 +168,7 @@ flat_list %>%
 p <- flat_list %>%
   dplyr::select(SampleID, internal_argument) %>%
   group_split(SampleID) 
+
 
 sapply(p, function(x) sum(x$internal_argument)) %>%
   mean()
@@ -178,7 +218,5 @@ lm(V1 ~ V2 + V3, data = as.data.frame(data_complete)) %>%
 ```
 
 # Rubin's method with the uncongenial imputation model is more accurate than with the congenial imputation model, how? 
-
-# Why is the Boot MI percentile severely (1/10) underestimating the variance compared to other methods? 
 
 # 
