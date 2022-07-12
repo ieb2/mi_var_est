@@ -64,8 +64,6 @@ data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
 # We are interested in estimating var(beta*V2)
 ```
 
-
-
 # Imputation of data 
 ```{r}
 # Congenial imputation 
@@ -90,7 +88,6 @@ uncon_imp <- mice(data_w_missing, method = "pmm")
 
 uncon_imp_data <- complete(uncon_imp, "long")
 ```
-
 
 # Full data analysis 
 ```{r}
@@ -287,7 +284,7 @@ boot_mi_percentile <- function(seed, times){
   # 4) Bootstrap confidence interval of the estimator is obtained
   
   # Bootstraps then imputed data 
-  boot_impute <- bootMice(data_w_missing, nBoot = 100, nImp = 2, nCores = 4, seed = seed)
+  boot_impute <- bootMice(data_w_missing, nBoot = times, nImp = 5, nCores = 4, seed = seed)
   
   # Applies analysis model to each of the b=1,..., B & m=1,..., M dfs. 
   summary_of_analysis <- map(boot_impute, ~tidy(lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)))
@@ -295,7 +292,7 @@ boot_mi_percentile <- function(seed, times){
   # Filters results and calculates variance 
   res <- c()
   
-  for(i in 1:length(x)){
+  for(i in 1:length(summary_of_analysis)){
     res[[i]] <- summary_of_analysis[[i]] %>%
       dplyr::filter(term=="V2") %>%
       mutate(variance = {std.error*{sample_size^{1/2}}}^2)
@@ -331,13 +328,8 @@ boot_mi_percentile <- function(seed, times){
 }
 ```
 
-
-
-
-
-
 # Visual for results 
-```{r}
+```{r, eval=FALSE}
 flat_list <- bind_rows(model_coefs_final)
   
 
