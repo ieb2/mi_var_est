@@ -5,6 +5,7 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 # Updates 
+  * Consider going over Boot MI von Hippel 
 
 # Dependencies 
 ```{r}
@@ -12,17 +13,20 @@ library(tidyverse)
 library(magrittr)
 library(mice)
 library(MASS)
-library(sjPlot)
-library(sjmisc)
-library(ggplot2)
+library(sjPlot) # Used for interaction visual 
+library(sjmisc) # Used for interaction visual 
+library(ggplot2) # Used for interaction visual 
 
-library(boot)
 library(rsample)
+library(bootImpute) # For boot_mi_percential 
 ```
 
-# Toy Example 
+
+
+# Data Generation 
 ```{r, cache=T}
 set.seed(971423)
+sample_size <- 100 
 
 cor_mat <- matrix(c(1, 0.5, 0.5, 
                     0.5, 1, 0.5, 
@@ -30,7 +34,7 @@ cor_mat <- matrix(c(1, 0.5, 0.5,
 
 mean_vec <- c(1, 1, 1)
 
-covariates <- as.data.frame(mvrnorm(100, mu = mean_vec, Sigma = cor_mat))
+covariates <- as.data.frame(mvrnorm(sample_size, mu = mean_vec, Sigma = cor_mat))
 covariates$V3 <- ifelse(covariates$V3 > 0, 1, 0)
 
 outcome_variable <- 0 + 
@@ -56,12 +60,16 @@ data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
 
 # "outcome_variable" is an outcome variable with 30% MAR. Covariates are fully observed. 
 
-# The analysis model is outcome_variable ~ V1 + V2 + V3
+# The analysis model is outcome_variable ~ V1 + V2 + V3 + V2*V3 + epsilon 
 # We are interested in estimating var(beta*V2)
 ```
 
+
+
+# Imputation of data 
 ```{r}
 # Congenial imputation 
+# To accomodate interaction V3 == 0 and V3 == 1 are imputed independently and combined. See van Buuren "Derived Vars"  
 part_one_con_imp <- 
   data_w_missing %>% 
   dplyr::filter(V3 == "0") %>%
@@ -77,78 +85,260 @@ con_imp_data <- rbind(
   complete(part_two_con_imp, "long")
 )
 # Uncongenial imputation 
+# Ignores interaction between V2:V3, uncongenial to analysis model which does not ignore interaction. 
 uncon_imp <- mice(data_w_missing, method = "pmm")
 
 uncon_imp_data <- complete(uncon_imp, "long")
+```
 
+
+# Full data analysis 
+```{r}
 # Fitting analysis model 
+# var(beta*V2) = 5.119662
+lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>%
+  summary() %>%
+  broom::tidy() %>%
+  dplyr::filter(term == "V2") %>%
+  mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+```
 
 # Rubin's rules 
-# var(beta*V2) = 0.02430348 -> Our reference value. 
+```{r}
+# var(beta*V2) = 5.059615 -> Our reference value. 
 con_imp_data %>%
   by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
   pool() %>%
   summary() %>%
-  mutate(variance = std.error^2) 
+  mutate(variance = {std.error*{sample_size^{1/2}}}^2) 
 
-# var(beta*V2) = 0.03304946
+# var(beta*V2) = 5.373042
 uncon_imp_data %>%
   by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
   pool() %>%
   summary() %>%
-  mutate(variance = std.error^2) 
+  mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+```
+
+
 
 # MI boot Rubin 
-times = 1E2
-bootstrap_samples <- map(
-  uncon_imp_data %>%
-    group_split(.imp),
-  ~ bootstraps(.,
-               times = times,
-               apparent = FALSE) %>%
-    mutate(
-      model = map(splits, ~ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)),
-      coef_inf = map(model, tidy)
-    )
-)
-
-# Function to obtain the statistics associated with term==V2, and calculate var.  
-coef_extractor <- function(x){
-  model_coefs <- x %>%
-    unnest(coef_inf) %>%
-    filter(term == "V2") %>%
-    mutate(variance = std.error ^ 2)
+```{r}
+mi_boot_rubin <- function(seed, times){
   
-  return(model_coefs)
+  set.seed(seed)
+  times = times # Number of bootstrap samples per m. 
+  
+  bootstrap_samples <- map(
+    uncon_imp_data %>%
+      group_split(.imp),
+    ~ bootstraps(.,
+                 times = times,
+                 apparent = FALSE) %>%
+      mutate(
+        model = map(splits, ~ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)),
+        coef_inf = map(model, tidy)
+      )
+  )
+  
+  
+  # Function to obtain the statistics associated with term==V2, and calculate var.  
+  coef_extractor <- function(x){
+    model_coefs <- x %>%
+      unnest(coef_inf) %>%
+      filter(term == "V2") %>%
+      mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+    
+    return(model_coefs)
+  }
+  
+  # Obtains statistics associated with term == V2 
+  model_coefs <- map(bootstrap_samples, coef_extractor)
+  
+  # Calculates mean var(Beta*V2) for m^th dataset. 
+  m_mean_vars <- sapply(model_coefs, function(x) mean(x$variance)) 
+  
+  # Combines statistics w/ mean var(Beta*V2) of m^th dataset. 
+  model_coefs_w_mean <- mapply(cbind, model_coefs, "m_mean_var" = m_mean_vars, SIMPLIFY = F)
+  
+  # Function to calculate the squared difference between m^th mean_var
+  # and b^th var.  
+  dif_calc <- function(x){
+    x %>%
+      dplyr::mutate("internal_argument" = ({variance - m_mean_vars})^2)
+  }
+  
+  # Combines squared variance difference with rest of statistics. 
+  model_coefs_w_ia <- map(model_coefs_w_mean, dif_calc)
+  
+  # Function to estimate within-imputation variance
+  w_i_var_estimator <- function(x){
+    data <- x$internal_argument
+    var_est <- sum(data)/{times-1}
+  }
+  
+  # Obtains M estimates of var(beta*V2) in list (Serves as ~Standard Error)
+  var_se_estimate <- lapply(model_coefs_w_ia, w_i_var_estimator)
+  
+  # M point estimates of var(beta*V2) obtained from imputed but not 
+  # bootstrapped data 
+  
+  var_point_estimate <- c()
+  for(i in 1:uncon_imp$m){
+    var_point_estimate[[i]] <- complete(uncon_imp, i) %>%
+      lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .) %>%
+      summary() %>%
+      broom::tidy() %>%
+      dplyr::filter(term == "V2") %>%
+      mutate(variance = {std.error*{sample_size^{1/2}}}^2) %>%
+      dplyr::select(variance)
+  }
+  
+  sample_mean <- mean(as.data.frame(unlist(var_point_estimate))$"unlist(var_point_estimate)")
+  conf_z_value <- 1.96 
+  sample_sd <- mean({unlist(var_se_estimate)^{1/2}})/{uncon_imp$m^{1/2}}
+  
+  UB <- round(sample_mean + {conf_z_value*sample_sd},2)
+  LB <- round(sample_mean - {conf_z_value*sample_sd},2)
+  
+  return(paste(LB, UB, sep = ",")) 
+  
 }
+```
 
-model_coefs <- map(bootstrap_samples, coef_extractor)
 
-m_mean_vars <- sapply(model_coefs, function(x) mean(x$variance)) 
-
-model_coefs_w_mean <- mapply(cbind, model_coefs, "m_mean_var" = m_mean_vars, SIMPLIFY = F)
-
-# Function to calculate numerator of the variance formula 
-var_calc <- function(x){
-  x %>%
-    dplyr::mutate("internal_argument" = ({variance - m_mean_vars})^2)
+# MI boot Pooled Percentile 
+```{r}
+mi_boot_pooled_percentile <- function(seed, times){
+  
+  set.seed(seed)
+  times = times # Number of bootstrap samples per m. 
+  
+  bootstrap_samples <- map(
+    uncon_imp_data %>%
+      group_split(.imp),
+    ~ bootstraps(.,
+                 times = times,
+                 apparent = FALSE) %>%
+      mutate(
+        model = map(splits, ~ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)),
+        coef_inf = map(model, tidy)
+      )
+  )
+  
+  
+  # Function to obtain the statistics associated with term==V2, and calculate var.  
+  coef_extractor <- function(x){
+    model_coefs <- x %>%
+      unnest(coef_inf) %>%
+      filter(term == "V2") %>%
+      mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+    
+    return(model_coefs)
+  }
+  
+  # Obtains statistics associated with term == V2 
+  model_coefs <- map(bootstrap_samples, coef_extractor)
+  
+  # Flattens list and gets ordered vector of variances across all MB datasets. 
+  var_est_vec_combined <- do.call("rbind", model_coefs) %>%
+    dplyr::select(variance) %>%
+    arrange(variance) %>%
+    unlist() %>%
+    as.vector()
+  
+  # Obtains point estimate of var(Beta*V2), which is the mean across M 
+  var_point_estimate <- c()
+  for(i in 1:uncon_imp$m){
+    var_point_estimate[[i]] <- complete(uncon_imp, i) %>%
+      lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .) %>%
+      summary() %>%
+      broom::tidy() %>%
+      dplyr::filter(term == "V2") %>%
+      mutate(variance = {std.error*{sample_size^{1/2}}}^2) %>%
+      dplyr::select(variance)
+  }
+  
+  mean(unlist(var_point_estimate))
+  
+  # Obtains desired quantiles of var_ests  
+  # Using alpha = 0.05 
+  quantile(var_est_vec_combined, probs = 0.05)
+  quantile(var_est_vec_combined, probs = 1-0.05)
+  
+  UB <- round(quantile(var_est_vec_combined, probs = 1-0.05),2)
+  LB <- round(quantile(var_est_vec_combined, probs = 0.05),2)
+  
+  return(paste(LB, UB, sep = ",")) 
+  
 }
+```
 
-model_coefs_w_numerator <- map(model_coefs_w_mean, var_calc)
+# Boot MI percentile 
+```{r}
+boot_mi_percentile <- function(seed, times){
+  
+  set.seed(seed)
+  times = times # Number of bootstrap samples per m. 
+  
+  # 1) B bootstraps are generated from the observed data. 
+  # 2) Each of the b=1...B datasets are imputed M times. 
+  # 3) Rubin's rules are used to obtain point estimates of theta
+  # 4) Bootstrap confidence interval of the estimator is obtained
+  
+  # Bootstraps then imputed data 
+  boot_impute <- bootMice(data_w_missing, nBoot = 100, nImp = 2, nCores = 4, seed = seed)
+  
+  # Applies analysis model to each of the b=1,..., B & m=1,..., M dfs. 
+  summary_of_analysis <- map(boot_impute, ~tidy(lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)))
+  
+  # Filters results and calculates variance 
+  res <- c()
+  
+  for(i in 1:length(x)){
+    res[[i]] <- summary_of_analysis[[i]] %>%
+      dplyr::filter(term=="V2") %>%
+      mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+  }
+  
+  # Combines all BM results into single list 
+  flat_models <- bind_rows(res, .id = "column_label")
+  
+  # Obtains point estimate of variance, which is the mean across BM
+  flat_models %>%
+    dplyr::select(variance) %>%
+    unlist() %>%
+    mean()
+  
+  # Gets ordered vector of variances across all MB datasets.
+  var_est_vec_combined <- flat_models %>%
+    dplyr::select(variance) %>%
+    arrange(variance) %>%
+    unlist() %>%
+    as.vector()
+  
+  
+  # Obtains desired quantiles of var_ests  
+  # Using alpha = 0.05 
+  quantile(var_est_vec_combined, probs = 0.05)
+  quantile(var_est_vec_combined, probs = 1-0.05)
+  
+  UB <- round(quantile(var_est_vec_combined, probs = 1-0.05),2)
+  LB <- round(quantile(var_est_vec_combined, probs = 0.05),2)
+  
+  return(paste(LB, UB, sep = ",")) 
+  
+}
+```
 
-ID <- c(1:(uncon_imp$m))
 
-model_coefs_final <- mapply(cbind, model_coefs_w_numerator, "SampleID"=ID, SIMPLIFY=F)
 
+
+
+
+# Visual for results 
+```{r}
 flat_list <- bind_rows(model_coefs_final)
-
-Vw <- sum(unlist(as.vector(flat_list %>%
-                       dplyr::select(variance)))) / 999
-
-Vb <- sum(unlist(as.vector(flat_list %>%
-  dplyr::select(internal_argument)))) / {uncon_imp$m-1}
-
-Vtotal <- Vw + Vb + Vb/{uncon_imp$m-1}
   
 
 flat_list %>%
@@ -164,59 +354,6 @@ flat_list %>%
   ylab("Frequency") +
   theme_minimal() +
   theme(legend.title = element_blank())
-
-p <- flat_list %>%
-  dplyr::select(SampleID, internal_argument) %>%
-  group_split(SampleID) 
-
-
-sapply(p, function(x) sum(x$internal_argument)) %>%
-  mean()
-
-# MI boot pooled percentile
-se <- function(x) sqrt(var(x) / length(x))
-
-# var(theta_2) = 0.009357518
-var_est_theta_2 <- sapply(p, function(x) sum(x$internal_argument)) %>%
-  mean()
-
-# se(theta_2) = 0.001376763
-se_theta_2 <- sapply(p, function(x) sum(x$internal_argument)) %>%
-  se()
-
-UB <- var_est_theta_2 + 1.96*se_theta_2
-LB <- var_est_theta_2 - 1.96*se_theta_2
-
-print(c(UB, LB))
-
-# Boot MI percentile
-
-# 1) B bootstraps are generated from the observed data. 
-# 2) Each of the b=1...B datasets are imputed M times. 
-# 3) Rubin's rules are used to obtain point estimates of theta
-# 4) Bootstrap confidence interval of the estimator is obtained
-library(bootImpute)
-
-boot_impute <- bootMice(data_w_missing, nBoot = 100, nImp = 2, nCores = 4, seed = 971423)
-
-x <- map(boot_impute, ~tidy(lm(V1 ~ V2 + V3, data = .)))
-
-res <- c()
-for(i in 1:length(x)){
-  res[[i]] <- x[[i]] %>%
-  dplyr::filter(term=="V2") %>%
-  mutate(variance = std.error^2)
-}
-
-flat_models <- bind_rows(res, .id = "column_label")
-
-flat_models$variance %>%
-  mean()
-
-lm(V1 ~ V2 + V3, data = as.data.frame(data_complete)) %>%
-  summary()
 ```
 
-# Rubin's method with the uncongenial imputation model is more accurate than with the congenial imputation model, how? 
 
-# 
