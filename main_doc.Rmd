@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 # Updates 
-  * Consider going over Boot MI von Hippel 
+  * 
 
 # Dependencies 
 ```{r}
@@ -18,43 +18,56 @@ library(sjmisc) # Used for interaction visual
 library(ggplot2) # Used for interaction visual 
 
 library(rsample)
-library(bootImpute) # For boot_mi_percential 
+library(bootImpute) # For boot_mi_percentile 
 ```
 
 
+# Simulation Setup 
+  * N = 999 datasets 
+  * p_mis $\in$ {0.10, 0.30, 0.50}
+  * Mechanism of Missingness = MAR 
+  * n = sample size $\in$ {500, 1000, 10000}
+  * q = number of covariates = 3 
+    * Interaction between Var2 and Var3 
+```{r, warning=F, cache=TRUE}
+N = 999 
+p_mis_vec <- c(rep(0.10, 333), rep(0.30, 333), rep(0.50, 333))
+sample_size_vec <- c(rep(500, 333), rep(1000, 333), rep(10000, 333))
+seed_vec <- rnorm(N, 0, 1)^2
+
+param_df <- data.frame(sample_size = sample_size_vec, prop = p_mis_vec, seed = seed_vec)
+
+data_frames <- do.call(Map, c(f= data_generator, param_df))
+
+
+```
 
 # Data Generation 
-```{r, cache=T}
+```{r, cache=TRUE}
 set.seed(971423)
-sample_size <- 100 
 
-cor_mat <- matrix(c(1, 0.5, 0.5, 
-                    0.5, 1, 0.5, 
-                    0.5, 0.5, 1), nrow = 3, ncol = 3)
-
-mean_vec <- c(1, 1, 1)
-
-covariates <- as.data.frame(mvrnorm(sample_size, mu = mean_vec, Sigma = cor_mat))
-covariates$V3 <- ifelse(covariates$V3 > 0, 1, 0)
-
-outcome_variable <- 0 + 
-  0.32*covariates$V1 + 
-  0.67*covariates$V2 +  
-  0.43*covariates$V3 + 
-  0.50*covariates$V2*covariates$V3 + # Interaction btwn. V2&V3
-  rnorm(100,0,1)
-
-data_complete <- cbind(outcome_variable, covariates)
-data_complete$V3 <- as.factor(data_complete$V3)
-
-fit <- lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete)
-summary(fit)
-
-# The influence of V2 on outcome var is different for values of V3
-# Two-way interaction btwn. V2*V3. 
-plot_model(fit, type = "int")
-
-data_w_missing <- ampute(data_complete, prop = 0.3, mech = "MAR", patterns = c(0, 1, 1, 1))$amp
+data_generator <- function(sample_size, prop, seed){
+  set.seed(seed)
+  cor_mat <- matrix(c(1, 0.5, 0.5, 
+                      0.5, 1, 0.5, 
+                      0.5, 0.5, 1), nrow = 3, ncol = 3)
+  
+  mean_vec <- c(1, 1, 1)
+  
+  covariates <- as.data.frame(mvrnorm(sample_size, mu = mean_vec, Sigma = cor_mat))
+  covariates$V3 <- ifelse(covariates$V3 > 0, 1, 0)
+  
+  outcome_variable <- 0 + 
+    0.32*covariates$V1 + 
+    0.67*covariates$V2 +  
+    0.43*covariates$V3 + 
+    0.50*covariates$V2*covariates$V3 + # Interaction btwn. V2&V3
+    rnorm(100,0,1)
+  
+  data_complete <- cbind(outcome_variable, covariates)
+  data_complete$V3 <- as.factor(data_complete$V3)
+  
+data_w_missing <- ampute(data_complete, prop = prop, mech = "MAR", patterns = c(0, 1, 1, 1))$amp
 
 data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
 
@@ -62,6 +75,18 @@ data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
 
 # The analysis model is outcome_variable ~ V1 + V2 + V3 + V2*V3 + epsilon 
 # We are interested in estimating var(beta*V2)
+  
+  return(data_w_missing)
+}
+
+fit <- lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete)
+summary(fit)
+
+data_w_missing <- data_generator(sample_size)
+
+# The influence of V2 on outcome var is different for values of V3
+# Two-way interaction btwn. V2*V3. 
+plot_model(fit, type = "int")
 ```
 
 # Imputation of data 
@@ -92,12 +117,11 @@ uncon_imp_data <- complete(uncon_imp, "long")
 # Full data analysis 
 ```{r}
 # Fitting analysis model 
-# var(beta*V2) = 5.119662
-lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>%
+lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>% 
   summary() %>%
   broom::tidy() %>%
   dplyr::filter(term == "V2") %>%
-  mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+  dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
 ```
 
 # Rubin's rules 
@@ -107,17 +131,15 @@ con_imp_data %>%
   by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
   pool() %>%
   summary() %>%
-  mutate(variance = {std.error*{sample_size^{1/2}}}^2) 
+  dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2) 
 
 # var(beta*V2) = 5.373042
 uncon_imp_data %>%
   by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
   pool() %>%
   summary() %>%
-  mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+  dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
 ```
-
-
 
 # MI boot Rubin 
 ```{r}
@@ -144,7 +166,7 @@ mi_boot_rubin <- function(seed, times){
     model_coefs <- x %>%
       unnest(coef_inf) %>%
       filter(term == "V2") %>%
-      mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+      dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
     
     return(model_coefs)
   }
@@ -187,7 +209,7 @@ mi_boot_rubin <- function(seed, times){
       summary() %>%
       broom::tidy() %>%
       dplyr::filter(term == "V2") %>%
-      mutate(variance = {std.error*{sample_size^{1/2}}}^2) %>%
+      dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2) %>%
       dplyr::select(variance)
   }
   
@@ -229,7 +251,7 @@ mi_boot_pooled_percentile <- function(seed, times){
     model_coefs <- x %>%
       unnest(coef_inf) %>%
       filter(term == "V2") %>%
-      mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+     dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
     
     return(model_coefs)
   }
@@ -252,7 +274,7 @@ mi_boot_pooled_percentile <- function(seed, times){
       summary() %>%
       broom::tidy() %>%
       dplyr::filter(term == "V2") %>%
-      mutate(variance = {std.error*{sample_size^{1/2}}}^2) %>%
+      dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2) %>%
       dplyr::select(variance)
   }
   
@@ -295,7 +317,7 @@ boot_mi_percentile <- function(seed, times){
   for(i in 1:length(summary_of_analysis)){
     res[[i]] <- summary_of_analysis[[i]] %>%
       dplyr::filter(term=="V2") %>%
-      mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+      dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
   }
   
   # Combines all BM results into single list 
