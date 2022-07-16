@@ -16,6 +16,7 @@ library(sjPlot) # Used for interaction visual
 library(sjmisc) # Used for interaction visual 
 library(ggplot2) # Used for interaction visual 
 library(furrr) # To use parallel "purrr" functions
+library(progressr) # For progress bar on furrr 
 
 library(rsample)
 library(bootImpute) # For boot_mi_percentile 
@@ -119,7 +120,14 @@ data_frames <- do.call(Map, c(f=data_generator, param_df))
 # Set a "plan" for how the code should run.
 plan(multisession, workers = 4)
 
-imputed_data_frames <- future_map(data_frames, ~mice(data = .x, method = "pmm", print=FALSE))
+with_progress({
+  p <- progressor(steps = length(data_frames)*5)
+  
+  imputed_data_frames <- future_map(data_frames, ~{
+    p(); 
+    mice(data = .x, method = "pmm", print=FALSE)
+  }, p = p)
+})
 ```
 
 
