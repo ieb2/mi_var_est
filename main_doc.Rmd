@@ -143,13 +143,14 @@ imputed_data_frames[[1]] %>%
 
 # MI boot Rubin 
 ```{r}
-mi_boot_rubin <- function(seed, times){
+mi_boot_rubin <- function(uncon_imp_data, seed, times){
   
   set.seed(seed)
   times = times # Number of bootstrap samples per m. 
   
   bootstrap_samples <- map(
     uncon_imp_data %>%
+      complete(., "long") %>%
       group_split(.imp),
     ~ bootstraps(.,
                  times = times,
@@ -160,6 +161,7 @@ mi_boot_rubin <- function(seed, times){
       )
   )
   
+  sample_size <- nrow(complete(uncon_imp_data, 1))
   
   # Function to obtain the statistics associated with term==V2, and calculate var.  
   coef_extractor <- function(x){
@@ -203,8 +205,8 @@ mi_boot_rubin <- function(seed, times){
   # bootstrapped data 
   
   var_point_estimate <- c()
-  for(i in 1:uncon_imp$m){
-    var_point_estimate[[i]] <- complete(uncon_imp, i) %>%
+  for(i in 1:uncon_imp_data$m){
+    var_point_estimate[[i]] <- complete(uncon_imp_data, i) %>%
       lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .) %>%
       summary() %>%
       broom::tidy() %>%
@@ -215,7 +217,7 @@ mi_boot_rubin <- function(seed, times){
   
   sample_mean <- mean(as.data.frame(unlist(var_point_estimate))$"unlist(var_point_estimate)")
   conf_z_value <- 1.96 
-  sample_sd <- mean({unlist(var_se_estimate)^{1/2}})/{uncon_imp$m^{1/2}}
+  sample_sd <- mean({unlist(var_se_estimate)^{1/2}})/{uncon_imp_data$m^{1/2}}
   
   UB <- round(sample_mean + {conf_z_value*sample_sd},2)
   LB <- round(sample_mean - {conf_z_value*sample_sd},2)
@@ -224,17 +226,16 @@ mi_boot_rubin <- function(seed, times){
   
 }
 ```
-
-
 # MI boot Pooled Percentile 
 ```{r}
-mi_boot_pooled_percentile <- function(seed, times){
+mi_boot_pooled_percentile <- function(uncon_imp_data, seed, times){
   
   set.seed(seed)
   times = times # Number of bootstrap samples per m. 
   
   bootstrap_samples <- map(
     uncon_imp_data %>%
+      complete(., "long") %>%
       group_split(.imp),
     ~ bootstraps(.,
                  times = times,
@@ -245,6 +246,7 @@ mi_boot_pooled_percentile <- function(seed, times){
       )
   )
   
+  sample_size <- nrow(complete(uncon_imp_data, 1))
   
   # Function to obtain the statistics associated with term==V2, and calculate var.  
   coef_extractor <- function(x){
@@ -268,8 +270,8 @@ mi_boot_pooled_percentile <- function(seed, times){
   
   # Obtains point estimate of var(Beta*V2), which is the mean across M 
   var_point_estimate <- c()
-  for(i in 1:uncon_imp$m){
-    var_point_estimate[[i]] <- complete(uncon_imp, i) %>%
+  for(i in 1:uncon_imp_data$m){
+    var_point_estimate[[i]] <- complete(uncon_imp_data, i) %>%
       lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .) %>%
       summary() %>%
       broom::tidy() %>%
@@ -292,10 +294,9 @@ mi_boot_pooled_percentile <- function(seed, times){
   
 }
 ```
-
 # Boot MI percentile 
 ```{r}
-boot_mi_percentile <- function(seed, times){
+boot_mi_percentile <- function(data_w_missing, seed, times){
   
   set.seed(seed)
   times = times # Number of bootstrap samples per m. 
@@ -313,7 +314,7 @@ boot_mi_percentile <- function(seed, times){
   
   # Filters results and calculates variance 
   res <- c()
-  
+  sample_size <- nrow(data_w_missing)
   for(i in 1:length(summary_of_analysis)){
     res[[i]] <- summary_of_analysis[[i]] %>%
       dplyr::filter(term=="V2") %>%
@@ -349,6 +350,7 @@ boot_mi_percentile <- function(seed, times){
   
 }
 ```
+
 
 # Visual for results 
 ```{r, eval=FALSE}
