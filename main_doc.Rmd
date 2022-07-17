@@ -64,7 +64,8 @@ data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
 # Imputation of data
 ```{r, eval=FALSE}
 # Congenial imputation 
-# To accomodate interaction V3 == 0 and V3 == 1 are imputed independently and combined. See van Buuren "Derived Vars"  
+# To accomodate interaction V3 == 0 and V3 == 1 are imputed independently and combined. See van Buuren "Derived Vars" 
+
 part_one_con_imp <- 
   data_w_missing %>% 
   dplyr::filter(V3 == "0") %>%
@@ -75,14 +76,12 @@ part_two_con_imp <-
   dplyr::filter(V3 == "1") %>%
   mice(., method = "pmm")
 
-con_imp_data <- rbind(
-  complete(part_one_con_imp, "long"),
-  complete(part_two_con_imp, "long")
-)
-# Uncongenial imputation 
+con_imp <- mice::rbind(part_one_con_imp, part_two_con_imp) 
+con_imp_data <- complete(con_imp, "long")
+
+# Uncongenal imputation 
 # Ignores interaction between V2:V3, uncongenial to analysis model which does not ignore interaction. 
 uncon_imp <- mice(data_w_missing, method = "pmm")
-
 uncon_imp_data <- complete(uncon_imp, "long")
 ```
 
@@ -97,6 +96,7 @@ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>%
 ```
 
 
+
 # Simulation Setup 
   * N = 999 datasets 
   * p_mis $\in$ {0.10, 0.30, 0.50}
@@ -106,9 +106,9 @@ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>%
     * Interaction between Var2 and Var3 
 ```{r, warning=F, cache=TRUE}
 set.seed(971423)
-N = 999 
-p_mis_vec <- c(rep(0.10, 999), rep(0.30, 999), rep(0.50, 999))
-sample_size_vec <- c(rep(500, 333), rep(1000, 333), rep(10000, 333))
+N = 333 
+p_mis_vec <- c(rep(0.10, N), rep(0.30, N), rep(0.50, N))
+sample_size_vec <- c(rep(500, N/3), rep(1000, N/3), rep(10000, N/3))
 seed_vec <- rnorm(N, 0, 1)^2
 
 sample_size_vec_repeated <- rep.int(sample_size_vec, 3)
@@ -118,39 +118,81 @@ param_df <- data.frame(sample_size = sample_size_vec_repeated, prop = p_mis_vec,
 data_frames <- do.call(Map, c(f=data_generator, param_df))
 
 # Set a "plan" for how the code should run.
-plan(multisession, workers = 4)
+plan(multisession, workers = parallel::detectCores()-1)
 
 with_progress({
-  p <- progressor(steps = length(data_frames)*5)
+  p <- progressor(steps = length(data_frames))
   
-  imputed_data_frames <- future_map(data_frames, ~{
+  uncon_imputed_data_frames <- future_map(data_frames, ~{
     p(); 
     mice(data = .x, method = "pmm", print=FALSE)
+  }, p = p)
+})
+
+# Set a "plan" for how the code should run.
+plan(multisession, workers = parallel::detectCores()-1)
+
+with_progress({
+  p <- progressor(steps = length(data_frames))
+  
+  con_imputed_data_frames <- future_map(data_frames, ~{
+    p(); 
+  part_one_con_imp <- 
+  data_w_missing %>% 
+  dplyr::filter(V3 == "0") %>%
+  mice(., method = "pmm", print=FALSE); 
+
+part_two_con_imp <- 
+  data_w_missing %>% 
+  dplyr::filter(V3 == "1") %>%
+  mice(., method = "pmm", print=FALSE); 
+
+con_imp <- mice::rbind(part_one_con_imp, part_two_con_imp) 
+    
   }, p = p)
 })
 ```
 
 
+
 # Rubin's rules 
 ```{r}
-# var(beta*V2) = 5.059615 -> Our reference value. 
-con_imp_data %>%
-  by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
-  pool() %>%
-  summary() %>%
-  dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2) 
+rubin_results_uncongenial <- c()
+for(i in 1:length(uncon_imputed_data_frames)){
+  sample_size <- nrow(complete(uncon_imputed_data_frames[[i]],1))
+  rubin_results_uncongenial[[i]] <- uncon_imputed_data_frames[[i]] %>%
+    complete(., "long") %>%
+    by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
+    pool() %>%
+    summary() %>%
+    dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+}
 
-# var(beta*V2) = 5.373042
-imputed_data_frames[[1]] %>%
-  complete(., "long") %>%
-  by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
-  pool() %>%
-  summary() %>%
-  dplyr::mutate(variance = {std.error*{500^{1/2}}}^2)
+rubin_results_congenial <- c()
+for(i in 1:length(con_imputed_data_frames)){
+  sample_size <- nrow(complete(con_imputed_data_frames[[i]],1))
+  rubin_results_congenial[[i]] <- con_imputed_data_frames[[i]] %>%
+    complete(., "long") %>%
+    by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
+    pool() %>%
+    summary() %>%
+    dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+}
 ```
 
 # MI boot Rubin 
 ```{r}
+# In Bartlett study, B = 200 
+seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
+times <- rep(200, length(uncon_imputed_data_frames))
+
+results <- c()
+
+for(i in 1:length(uncon_imputed_data_frames)){
+  results[[i]] <- 
+    mi_boot_rubin(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
+}
+
 mi_boot_rubin <- function(uncon_imp_data, seed, times){
   
   set.seed(seed)
