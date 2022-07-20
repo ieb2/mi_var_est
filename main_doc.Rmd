@@ -128,14 +128,21 @@ with_progress({
 })
 
 part_one_con_imp <-
-  purrr::map(data_frames, ~ dplyr::filter(., V3 == "0")) %>%
-  purrr::map(., ~mice(.x, method="pmm", print=FALSE))
+  purrr::map(data_frames, ~ dplyr::filter(., V3 == "0"))
+
+part_one_imputed <- lapply(part_one_con_imp, function(x) mice(x, method = "pmm", print = FALSE)) 
 
 part_two_con_imp <-
-  purrr::map(data_frames, ~ dplyr::filter(., V3 == "1")) %>%
-  purrr::map(., ~mice(.x, method="pmm", print=FALSE))
+  purrr::map(data_frames, ~ dplyr::filter(., V3 == "1"))
 
-con_imputed_data_frames <- mice::cbind(part_one_con_imp, part_two_con_imp) 
+part_two_imputed <- lapply(part_two_con_imp, function(x) mice(x, method = "pmm", print = FALSE)) 
+
+
+
+con_imputed_data_frames <- c()
+for(i in 1:length(part_two_imputed)){
+  con_imputed_data_frames[[i]] <- mice::rbind(part_one_imputed[[i]], part_two_imputed[[i]]) 
+}
 ```
 
 # Rubin's rules 
@@ -253,22 +260,19 @@ mi_boot_rubin <- function(uncon_imp_data, seed, times){
 ```{r}
 # In Bartlett study, B = 200 
 seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
-times <- rep(200, length(uncon_imputed_data_frames))
+times <- rep(5, length(uncon_imputed_data_frames))
 
 results_mi_boot_rubin_uncon <- c()
 
 for(i in 1:length(uncon_imputed_data_frames)){
-  results[[i]] <- 
+  results_mi_boot_rubin_uncon[[i]] <- 
     mi_boot_rubin(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
 }
 
-seed <- as.vector(rnorm(length(con_imputed_data_frames), 0, 1)^2) 
-times <- rep(200, length(con_imputed_data_frames))
-
-results_mi_boot_rubin_uncon <- c()
+results_mi_boot_rubin_con <- c()
 
 for(i in 1:length(con_imputed_data_frames)){
-  results[[i]] <- 
+  results_mi_boot_rubin_con[[i]] <- 
     mi_boot_rubin(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
 }
 ```
@@ -344,23 +348,20 @@ mi_boot_pooled_percentile <- function(uncon_imp_data, seed, times){
 
 ```{r}
 seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
-times <- rep(200, length(uncon_imputed_data_frames))
+times <- rep(5, length(uncon_imputed_data_frames))
 
-results_mi_boot_rubin_uncon <- c()
+results_mi_boot_pooled_percentile_uncon <- c()
 
 for(i in 1:length(uncon_imputed_data_frames)){
-  results_mi_boot_rubin_uncon[[i]] <- 
-    mi_boot_pooled_percentile(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
+  results_mi_boot_pooled_percentile_uncon[[i]] <- 
+    mi_boot_rubin(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
 }
 
-seed <- as.vector(rnorm(length(con_imputed_data_frames), 0, 1)^2) 
-times <- rep(200, length(con_imputed_data_frames))
-
-results_mi_boot_rubin_con <- c()
+results_mi_boot_pooled_percentile_con <- c()
 
 for(i in 1:length(con_imputed_data_frames)){
-  results_mi_boot_rubin_con[[i]] <- 
-    mi_boot_pooled_percentile(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
+  results_mi_boot_pooled_percentile_con[[i]] <- 
+    mi_boot_rubin(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
 }
 ```
 
@@ -423,7 +424,7 @@ boot_mi_percentile <- function(data_w_missing, seed, times){
 
 ```{r}
 seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
-times <- rep(200, length(uncon_imputed_data_frames))
+times <- rep(8, length(uncon_imputed_data_frames))
 
 results_boot_mi_percentile_uncon <- c()
 
@@ -431,9 +432,6 @@ for(i in 1:length(uncon_imputed_data_frames)){
   results_mi_boot_rubin_uncon[[i]] <- 
     mi_boot_pooled_percentile(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
 }
-
-seed <- as.vector(rnorm(length(con_imputed_data_frames), 0, 1)^2) 
-times <- rep(200, length(con_imputed_data_frames))
 
 results_mi_boot_rubin_con <- c()
 
