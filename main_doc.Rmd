@@ -1,11 +1,11 @@
 ---
-title: "main_doc"
+  title: "main_doc"
 author: "Ihsan E. Buker"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 # Updates 
-
+  
 # Dependencies 
 ```{r}
 library(tidyverse)
@@ -45,14 +45,14 @@ data_generator <- function(sample_size, prop, seed){
   data_complete <- cbind(outcome_variable, covariates)
   data_complete$V3 <- as.factor(data_complete$V3)
   
-data_w_missing <- ampute(data_complete, prop = prop, mech = "MAR", patterns = c(0, 1, 1, 1))$amp
-
-data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
-
-# "outcome_variable" is an outcome variable with 30% MAR. Covariates are fully observed. 
-
-# The analysis model is outcome_variable ~ V1 + V2 + V3 + V2*V3 + epsilon 
-# We are interested in estimating var(beta*V2)
+  data_w_missing <- ampute(data_complete, prop = prop, mech = "MAR", patterns = c(0, 1, 1, 1))$amp
+  
+  data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
+  
+  # "outcome_variable" is an outcome variable with 30% MAR. Covariates are fully observed. 
+  
+  # The analysis model is outcome_variable ~ V1 + V2 + V3 + V2*V3 + epsilon 
+  # We are interested in estimating var(beta*V2)
   
   return(data_w_missing)
 }
@@ -95,15 +95,13 @@ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>%
   dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
 ```
 
-
-
 # Simulation Setup 
-  * N = 999 datasets 
-  * p_mis $\in$ {0.10, 0.30, 0.50}
-  * Mechanism of Missingness = MAR 
-  * n = sample size $\in$ {500, 1000, 10000}
-  * q = number of covariates = 3 
-    * Interaction between Var2 and Var3 
+* N = 999 datasets 
+* p_mis $\in$ {0.10, 0.30, 0.50}
+* Mechanism of Missingness = MAR 
+* n = sample size $\in$ {500, 1000, 10000}
+* q = number of covariates = 3 
+* Interaction between Var2 and Var3 
 ```{r, warning=F, cache=TRUE}
 set.seed(971423)
 N = 333 
@@ -117,7 +115,7 @@ param_df <- data.frame(sample_size = sample_size_vec_repeated, prop = p_mis_vec,
 
 data_frames <- do.call(Map, c(f=data_generator, param_df))
 
-# Set a "plan" for how the code should run.
+# Uncongenial Imputation of data frames w/ missing outcome_vars 
 plan(multisession, workers = parallel::detectCores()-1)
 
 with_progress({
@@ -129,7 +127,11 @@ with_progress({
   }, p = p)
 })
 
-# Set a "plan" for how the code should run.
+part_one_con_imp <- 
+      purrr::map(data_frames, ~ dplyr::filter(., V3 == "0")) %>%
+      lapply(., mice(., method = "pmm", print=FALSE)) 
+
+# Congenial Imputation of data frames w/ missing outcome_vars 
 plan(multisession, workers = parallel::detectCores()-1)
 
 with_progress({
@@ -137,23 +139,19 @@ with_progress({
   
   con_imputed_data_frames <- future_map(data_frames, ~{
     p(); 
-  part_one_con_imp <- 
-  data_w_missing %>% 
-  dplyr::filter(V3 == "0") %>%
-  mice(., method = "pmm", print=FALSE); 
-
-part_two_con_imp <- 
-  data_w_missing %>% 
-  dplyr::filter(V3 == "1") %>%
-  mice(., method = "pmm", print=FALSE); 
-
-con_imp <- mice::rbind(part_one_con_imp, part_two_con_imp) 
+    part_one_con_imp <- 
+      purrr::map(data_frames, ~ dplyr::filter(., V3 == "0")) %>%
+      lapply(., mice(., method = "pmm", print=FALSE)); 
+    
+    part_two_con_imp <- 
+      purrr::map(data_frames, ~ dplyr::filter(., V3 == "1")) %>%
+      lapply(.,mice(., method = "pmm", print=FALSE)); 
+    
+    con_imp <- mice::rbind(part_one_con_imp, part_two_con_imp) 
     
   }, p = p)
 })
 ```
-
-
 
 # Rubin's rules 
 ```{r}
@@ -182,17 +180,6 @@ for(i in 1:length(con_imputed_data_frames)){
 
 # MI boot Rubin 
 ```{r}
-# In Bartlett study, B = 200 
-seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
-times <- rep(200, length(uncon_imputed_data_frames))
-
-results <- c()
-
-for(i in 1:length(uncon_imputed_data_frames)){
-  results[[i]] <- 
-    mi_boot_rubin(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
-}
-
 mi_boot_rubin <- function(uncon_imp_data, seed, times){
   
   set.seed(seed)
@@ -276,6 +263,30 @@ mi_boot_rubin <- function(uncon_imp_data, seed, times){
   
 }
 ```
+
+```{r}
+# In Bartlett study, B = 200 
+seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
+times <- rep(200, length(uncon_imputed_data_frames))
+
+results_mi_boot_rubin_uncon <- c()
+
+for(i in 1:length(uncon_imputed_data_frames)){
+  results[[i]] <- 
+    mi_boot_rubin(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
+}
+
+seed <- as.vector(rnorm(length(con_imputed_data_frames), 0, 1)^2) 
+times <- rep(200, length(con_imputed_data_frames))
+
+results_mi_boot_rubin_uncon <- c()
+
+for(i in 1:length(con_imputed_data_frames)){
+  results[[i]] <- 
+    mi_boot_rubin(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
+}
+```
+
 # MI boot Pooled Percentile 
 ```{r}
 mi_boot_pooled_percentile <- function(uncon_imp_data, seed, times){
@@ -303,7 +314,7 @@ mi_boot_pooled_percentile <- function(uncon_imp_data, seed, times){
     model_coefs <- x %>%
       unnest(coef_inf) %>%
       filter(term == "V2") %>%
-     dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+      dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
     
     return(model_coefs)
   }
@@ -344,6 +355,29 @@ mi_boot_pooled_percentile <- function(uncon_imp_data, seed, times){
   
 }
 ```
+
+```{r}
+seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
+times <- rep(200, length(uncon_imputed_data_frames))
+
+results_mi_boot_rubin_uncon <- c()
+
+for(i in 1:length(uncon_imputed_data_frames)){
+  results_mi_boot_rubin_uncon[[i]] <- 
+    mi_boot_pooled_percentile(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
+}
+
+seed <- as.vector(rnorm(length(con_imputed_data_frames), 0, 1)^2) 
+times <- rep(200, length(con_imputed_data_frames))
+
+results_mi_boot_rubin_con <- c()
+
+for(i in 1:length(con_imputed_data_frames)){
+  results_mi_boot_rubin_con[[i]] <- 
+    mi_boot_pooled_percentile(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
+}
+```
+
 # Boot MI percentile 
 ```{r}
 boot_mi_percentile <- function(data_w_missing, seed, times){
@@ -401,6 +435,28 @@ boot_mi_percentile <- function(data_w_missing, seed, times){
 }
 ```
 
+```{r}
+seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
+times <- rep(200, length(uncon_imputed_data_frames))
+
+results_boot_mi_percentile_uncon <- c()
+
+for(i in 1:length(uncon_imputed_data_frames)){
+  results_mi_boot_rubin_uncon[[i]] <- 
+    mi_boot_pooled_percentile(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
+}
+
+seed <- as.vector(rnorm(length(con_imputed_data_frames), 0, 1)^2) 
+times <- rep(200, length(con_imputed_data_frames))
+
+results_mi_boot_rubin_con <- c()
+
+for(i in 1:length(con_imputed_data_frames)){
+  results_mi_boot_rubin_con[[i]] <- 
+    mi_boot_pooled_percentile(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
+}
+```
+
 
 # Visual for results 
 ```{r, eval=FALSE}
@@ -420,5 +476,4 @@ flat_list %>%
   theme_minimal() +
   theme(legend.title = element_blank())
 ```
-
 
