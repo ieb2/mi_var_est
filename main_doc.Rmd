@@ -127,30 +127,15 @@ with_progress({
   }, p = p)
 })
 
-part_one_con_imp <- 
-      purrr::map(data_frames, ~ dplyr::filter(., V3 == "0")) %>%
-      lapply(., mice(., method = "pmm", print=FALSE)) 
+part_one_con_imp <-
+  purrr::map(data_frames, ~ dplyr::filter(., V3 == "0")) %>%
+  purrr::map(., ~mice(.x, method="pmm", print=FALSE))
 
-# Congenial Imputation of data frames w/ missing outcome_vars 
-plan(multisession, workers = parallel::detectCores()-1)
+part_two_con_imp <-
+  purrr::map(data_frames, ~ dplyr::filter(., V3 == "1")) %>%
+  purrr::map(., ~mice(.x, method="pmm", print=FALSE))
 
-with_progress({
-  p <- progressor(steps = length(data_frames))
-  
-  con_imputed_data_frames <- future_map(data_frames, ~{
-    p(); 
-    part_one_con_imp <- 
-      purrr::map(data_frames, ~ dplyr::filter(., V3 == "0")) %>%
-      lapply(., mice(., method = "pmm", print=FALSE)); 
-    
-    part_two_con_imp <- 
-      purrr::map(data_frames, ~ dplyr::filter(., V3 == "1")) %>%
-      lapply(.,mice(., method = "pmm", print=FALSE)); 
-    
-    con_imp <- mice::rbind(part_one_con_imp, part_two_con_imp) 
-    
-  }, p = p)
-})
+con_imputed_data_frames <- mice::cbind(part_one_con_imp, part_two_con_imp) 
 ```
 
 # Rubin's rules 
@@ -167,14 +152,15 @@ for(i in 1:length(uncon_imputed_data_frames)){
 }
 
 rubin_results_congenial <- c()
+
 for(i in 1:length(con_imputed_data_frames)){
-  sample_size <- nrow(complete(con_imputed_data_frames[[i]],1))
-  rubin_results_congenial[[i]] <- con_imputed_data_frames[[i]] %>%
+ sample_size <- nrow(complete(con_imputed_data_frames[[i]],1))
+  rubin_results_congenial[[i]] <- try(con_imputed_data_frames[[i]] %>%
     complete(., "long") %>%
     by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
     pool() %>%
     summary() %>%
-    dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+    dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2))
 }
 ```
 
