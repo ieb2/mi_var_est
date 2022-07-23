@@ -1,11 +1,22 @@
 ---
-  title: "main_doc"
+title: "main_doc"
 author: "Ihsan E. Buker"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 # Updates 
   
+  * Had to change sizes: 
+    * N = 333 vs. 999 
+    * B = 5 vs. 200 
+    * m = 5 vs. 10 
+    * itr = 5 vs. ~25
+  * Problem with rlang on server but think I got it figured out. 
+  * Need to organize data
+    * Combine point estimates and CIs 
+    * Literature focuses on CI comparison 
+  * Random question
+    * 
 # Dependencies 
 ```{r}
 library(tidyverse)
@@ -94,6 +105,7 @@ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>%
   dplyr::filter(term == "V2") %>%
   dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
 ```
+
 
 # Simulation Setup 
 * N = 999 datasets 
@@ -252,7 +264,7 @@ mi_boot_rubin <- function(uncon_imp_data, seed, times){
   UB <- round(sample_mean + {conf_z_value*sample_sd},2)
   LB <- round(sample_mean - {conf_z_value*sample_sd},2)
   
-  return(paste(LB, UB, sep = ",")) 
+  return(data.frame(UB, LB, "point_estimate" = sample_mean))
   
 }
 ```
@@ -331,7 +343,6 @@ mi_boot_pooled_percentile <- function(uncon_imp_data, seed, times){
       dplyr::select(variance)
   }
   
-  mean(unlist(var_point_estimate))
   
   # Obtains desired quantiles of var_ests  
   # Using alpha = 0.05 
@@ -341,7 +352,7 @@ mi_boot_pooled_percentile <- function(uncon_imp_data, seed, times){
   UB <- round(quantile(var_est_vec_combined, probs = 1-0.05),2)
   LB <- round(quantile(var_est_vec_combined, probs = 0.05),2)
   
-  return(paste(LB, UB, sep = ",")) 
+  return(data.frame(UB, LB, "point_estimate" =  mean(unlist(var_point_estimate))))
   
 }
 ```
@@ -396,10 +407,11 @@ boot_mi_percentile <- function(data_w_missing, seed, times){
   flat_models <- bind_rows(res, .id = "column_label")
   
   # Obtains point estimate of variance, which is the mean across BM
-  flat_models %>%
+  var_point_estimate <- flat_models %>%
     dplyr::select(variance) %>%
     unlist() %>%
     mean()
+  
   
   # Gets ordered vector of variances across all MB datasets.
   var_est_vec_combined <- flat_models %>%
@@ -417,7 +429,7 @@ boot_mi_percentile <- function(data_w_missing, seed, times){
   UB <- round(quantile(var_est_vec_combined, probs = 1-0.05),2)
   LB <- round(quantile(var_est_vec_combined, probs = 0.05),2)
   
-  return(paste(LB, UB, sep = ",")) 
+  return(data.frame(UB, LB, var_point_estimate))
   
 }
 ```
@@ -439,6 +451,23 @@ for(i in 1:length(con_imputed_data_frames)){
   results_mi_boot_rubin_con[[i]] <- 
     mi_boot_pooled_percentile(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
 }
+```
+
+
+# Organization of Results 
+```{r}
+rubin_results_uncongenial %>%
+  View()
+rubin_results_congenial
+
+results_mi_boot_rubin_uncon
+results_mi_boot_rubin_con
+
+results_mi_boot_pooled_percentile_uncon
+results_mi_boot_pooled_percentile_con
+
+results_boot_mi_percentile_uncon
+results_boot_mi_percentile_con
 ```
 
 
