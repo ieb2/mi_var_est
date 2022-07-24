@@ -3,6 +3,8 @@ title: "main_doc"
 author: "Ihsan E. Buker"
 date: "`r Sys.Date()`"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 # Updates 
   
@@ -116,7 +118,7 @@ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>%
 * Interaction between Var2 and Var3 
 ```{r, warning=F, cache=TRUE}
 set.seed(971423)
-N = 333 
+N = 999 
 p_mis_vec <- c(rep(0.10, N), rep(0.30, N), rep(0.50, N))
 sample_size_vec <- c(rep(500, N/3), rep(1000, N/3), rep(10000, N/3))
 seed_vec <- rnorm(N, 0, 1)^2
@@ -392,11 +394,64 @@ boot_mi_percentile <- function(data_w_missing, seed, times){
   boot_impute <- bootMice(data_w_missing, nBoot = times, nImp = 5, nCores = 4, seed = seed)
   
   # Applies analysis model to each of the b=1,..., B & m=1,..., M dfs. 
-  summary_of_analysis <- map(boot_impute, ~tidy(lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)))
+  summary_of_analysis <- map(boot_impute, ~broom::tidy(lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)))
   
   # Filters results and calculates variance 
   res <- c()
   sample_size <- nrow(data_w_missing)
+  for(i in 1:length(summary_of_analysis)){
+    res[[i]] <- summary_of_analysis[[i]] %>%
+      dplyr::filter(term=="V2") %>%
+      dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+  }
+  
+  # Combines all BM results into single list 
+  flat_models <- bind_rows(res, .id = "column_label")
+  
+  # Obtains point estimate of variance, which is the mean across BM
+  var_point_estimate <- flat_models %>%
+    dplyr::select(variance) %>%
+    unlist() %>%
+    mean()
+  
+  
+  # Gets ordered vector of variances across all MB datasets.
+  var_est_vec_combined <- flat_models %>%
+    dplyr::select(variance) %>%
+    arrange(variance) %>%
+    unlist() %>%
+    as.vector()
+  
+  
+  # Obtains desired quantiles of var_ests  
+  # Using alpha = 0.05 
+  quantile(var_est_vec_combined, probs = 0.05)
+  quantile(var_est_vec_combined, probs = 1-0.05)
+  
+  UB <- round(quantile(var_est_vec_combined, probs = 1-0.05),2)
+  LB <- round(quantile(var_est_vec_combined, probs = 0.05),2)
+  
+  return(data.frame(UB, LB, var_point_estimate))
+  
+}
+
+boot_mi_percentile_congenial <- function(boot_impute, seed, times){
+  
+  set.seed(seed)
+  times = times # Number of bootstrap samples per m. 
+  
+  # 1) B bootstraps are generated from the observed data. 
+  # 2) Each of the b=1...B datasets are imputed M times. 
+  # 3) Rubin's rules are used to obtain point estimates of theta
+  # 4) Bootstrap confidence interval of the estimator is obtained
+  
+  
+  # Applies analysis model to each of the b=1,..., B & m=1,..., M dfs. 
+  summary_of_analysis <- map(boot_impute, ~broom::tidy(lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = .)))
+  
+  # Filters results and calculates variance 
+  res <- c()
+  sample_size <- nrow(boot_impute[[1]])
   for(i in 1:length(summary_of_analysis)){
     res[[i]] <- summary_of_analysis[[i]] %>%
       dplyr::filter(term=="V2") %>%
@@ -438,36 +493,61 @@ boot_mi_percentile <- function(data_w_missing, seed, times){
 seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
 times <- rep(8, length(uncon_imputed_data_frames))
 
+# Uncongenial can run as is, since we want it to ignore the interaction term. 
 results_boot_mi_percentile_uncon <- c()
 
-for(i in 1:length(uncon_imputed_data_frames)){
-  results_mi_boot_rubin_uncon[[i]] <- 
-    mi_boot_pooled_percentile(uncon_imputed_data_frames[[i]], seed[[i]], times[[i]])
+for(i in 1:length(data_w_missing)){
+  results_boot_mi_percentile_uncon[[i]] <- 
+    boot_mi_percentile(data_w_missing[[i]], seed[[i]], times[[i]])
 }
 
-results_mi_boot_rubin_con <- c()
+# Congenial needs to take place in two phases to accomodate the interaction term. 
 
-for(i in 1:length(con_imputed_data_frames)){
-  results_mi_boot_rubin_con[[i]] <- 
-    mi_boot_pooled_percentile(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
+# Impute only V3 == 0
+imputed_dfs_part_one <- c()
+
+for(i in 1:length(data_frames)){
+ imputed_dfs_part_one[[i]] <- bootMice(data_frames[[i]] %>%
+                          dplyr::filter(V3 == "0"), nBoot = times[[i]], nImp = 5, nCores = 8, seed = seed[[i]])
+}
+  
+# Impute only V3 ==1
+imputed_dfs_part_two <- c()
+pb <- txtProgressBar(min = 0,      
+                     max = length(data_frames), 
+                     style = 3,    
+                     width = 50,   
+                     char = "=")  
+
+for(i in 1:length(data_frames)){
+  imputed_dfs_part_two[[i]] <- bootMice(data_frames[[i]] %>%
+                                          dplyr::filter(V3 == "1"), nBoot = times[[i]], nImp = 5, nCores = 8, seed = seed[[i]], print = FALSE);
+  setTxtProgressBar(pb, i)
+}
+close(pb)
+
+# rbind the two phases 
+combined_imputed_dfs <- c()
+
+for(i in 1:length(data_frames)){
+  combined_imputed_dfs[[i]] <- rbind(imputed_dfs_part_one[[i]], imputed_dfs_part_two[[i]])
 }
 ```
 
 
 # Organization of Results 
 ```{r}
-rubin_results_uncongenial %>%
-  View()
+rubin_results_uncongenial 
 rubin_results_congenial
 
-results_mi_boot_rubin_uncon
+results_mi_boot_rubin_uncon 
 results_mi_boot_rubin_con
 
-results_mi_boot_pooled_percentile_uncon
-results_mi_boot_pooled_percentile_con
+results_mi_boot_pooled_percentile_uncon 
+results_mi_boot_pooled_percentile_con 
 
-results_boot_mi_percentile_uncon
-results_boot_mi_percentile_con
+results_boot_mi_percentile_uncon 
+results_boot_mi_percentile_con 
 ```
 
 
