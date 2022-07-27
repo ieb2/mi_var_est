@@ -52,7 +52,7 @@ Initially, the imputation model utilized by \texttt{mice()} will be uncongenial 
   * $Z_c = \{X, Y_{inc}\}$ is the complete data. 
   * $Z_o = \{X, Y_{obs}, R_{inc}\}$ is the incomplete (i.e., observed) data. 
   * The analyst's complete-data procedure is summarized by $\mathscr{P}_{com} = [\hat{Q}(X, Y_{inc}), U(X, Y_{inc})]$,   where $\hat{Q}(X, Y_{inc})$ is an estimator of $Q$ with associated variance $U(X, Y_{inc}.)$ 
-  * $R$ is not a part of ${P_{com}}$, as the missing at random assumption implies that the response behavior itself carries no information about $Q$. 
+  * $R$ is not a part of $\mathscr{P}_{com}$, as the missing at random assumption implies that the response behavior itself carries no information about $Q$. 
 
 ## Formal Definition of Congeniality     
 
