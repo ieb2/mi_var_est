@@ -603,7 +603,7 @@ results_boot_mi_percentile_con <- future_map(combined_imputed_dfs, boot_mi_perce
 new_names <- c("UB", "LB", "variance")
 
 rubin_uncongenial_results_final <- lapply(rubin_uncongenial_results_final, setNames, new_names)
-rubin_congenial_results_final <- lapply(rubin_uncongenial_results_final, setNames, new_names)
+rubin_congenial_results_final <- lapply(rubin_congenial_results_final, setNames, new_names)
 
 results_mi_boot_rubin_uncon <- lapply(results_mi_boot_rubin_uncon, setNames, new_names)
 results_mi_boot_rubin_con <- lapply(results_mi_boot_rubin_con, setNames, new_names)
