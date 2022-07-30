@@ -36,7 +36,7 @@ library(bootImpute) # For boot_mi_percentile
 ```
 
 # Data Generation 
-```{r, cache=TRUE}
+```{r}
 data_generator <- function(sample_size, prop, seed){
   set.seed(seed)
   cor_mat <- matrix(c(1, 0.5, 0.5, 
@@ -116,9 +116,9 @@ lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>%
 * n = sample size $\in$ {500, 1000, 10000}
 * q = number of covariates = 3 
 * Interaction between Var2 and Var3 
-```{r, warning=F, cache=TRUE}
+```{r, warning=F, cache=FALSE}
 set.seed(971423)
-N = 999 
+N = 333 
 p_mis_vec <- c(rep(0.10, N), rep(0.30, N), rep(0.50, N))
 sample_size_vec <- c(rep(500, N/3), rep(1000, N/3), rep(10000, N/3))
 seed_vec <- rnorm(N, 0, 1)^2
@@ -151,8 +151,6 @@ part_two_con_imp <-
 
 part_two_imputed <- lapply(part_two_con_imp, function(x) mice(x, method = "pmm", print = FALSE)) 
 
-
-
 con_imputed_data_frames <- c()
 for(i in 1:length(part_two_imputed)){
   con_imputed_data_frames[[i]] <- mice::rbind(part_one_imputed[[i]], part_two_imputed[[i]]) 
@@ -184,6 +182,58 @@ for(i in 1:length(con_imputed_data_frames)){
     dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2))
 }
 ```
+
+## Confidence Interval for Rubin's method 
+```{r}
+ci_calc <- function(sample_size, variance, seed){
+  set.seed(seed)
+  denominator_l_b <- qchisq(.975, df={sample_size-1}, lower.tail = TRUE)
+  numerator_l_b <- (sample_size-1)*variance
+  LB <- {numerator_l_b/denominator_l_b}
+  
+  denominator_u_b <- qchisq(.025, df={sample_size-1}, lower.tail = TRUE)
+  numerator_u_b <- (sample_size-1)*variance
+  UB <- {numerator_u_b/denominator_u_b}
+  
+  variance <- variance 
+  
+  return(data.frame(UB,LB,variance))
+}
+
+uncongenial_vars_rubin <- vector("list", length = length(data_frames))
+for(i in 1:length(data_frames)){
+  uncongenial_vars_rubin[[i]] <- rubin_results_uncongenial[[i]] %>%
+  dplyr::filter(term == "V2") %>%
+  dplyr::select(variance)
+}
+
+congenial_vars_rubin <- vector("list", length = length(data_frames))
+for(i in 1:length(data_frames)){
+  congenial_vars_rubin[[i]] <- rubin_results_congenial[[i]] %>%
+  dplyr::filter(term == "V2") %>%
+  dplyr::select(variance)
+}
+
+ss_vec <- as.vector(unlist(param_df$sample_size))
+
+var_vec <- as.vector(unlist(congenial_vars_rubin))
+
+seeds <- as.vector(unlist(param_df$seed))
+
+rubin_congenial_results_final <- vector("list", length = length(data_frames))
+for(i in 1:length(data_frames)){
+  rubin_congenial_results_final[[i]] <- 
+    ci_calc(ss_vec[[i]], var_vec[[i]], seeds[[i]])
+}
+
+uncon_var_vec <- as.vector(unlist(uncongenial_vars_rubin))
+rubin_uncongenial_results_final <- vector("list", length = length(data_frames))
+for(i in 1:length(data_frames)){
+  rubin_uncongenial_results_final[[i]] <- 
+    ci_calc(ss_vec[[i]], uncon_var_vec[[i]], seeds[[i]])
+}
+```
+
 
 # MI boot Rubin 
 ```{r}
@@ -285,10 +335,18 @@ for(i in 1:length(uncon_imputed_data_frames)){
 
 results_mi_boot_rubin_con <- c()
 
+pb <- txtProgressBar(min = 0,      
+                     max = length(data_frames), 
+                     style = 3,    
+                     width = 50,   
+                     char = "=")  
+
 for(i in 1:length(con_imputed_data_frames)){
   results_mi_boot_rubin_con[[i]] <- 
     mi_boot_rubin(con_imputed_data_frames[[i]], seed[[i]], times[[i]])
+  setTxtProgressBar(pb, i)
 }
+close(pb)
 ```
 
 # MI boot Pooled Percentile 
@@ -435,10 +493,7 @@ boot_mi_percentile <- function(data_w_missing, seed, times){
   
 }
 
-boot_mi_percentile_congenial <- function(boot_impute, seed, times){
-  
-  set.seed(seed)
-  times = times # Number of bootstrap samples per m. 
+boot_mi_percentile_congenial <- function(boot_impute){
   
   # 1) B bootstraps are generated from the observed data. 
   # 2) Each of the b=1...B datasets are imputed M times. 
@@ -491,14 +546,14 @@ boot_mi_percentile_congenial <- function(boot_impute, seed, times){
 
 ```{r}
 seed <- as.vector(rnorm(length(uncon_imputed_data_frames), 0, 1)^2) 
-times <- rep(8, length(uncon_imputed_data_frames))
+times <- rep(5, length(uncon_imputed_data_frames))
 
 # Uncongenial can run as is, since we want it to ignore the interaction term. 
 results_boot_mi_percentile_uncon <- c()
 
-for(i in 1:length(data_w_missing)){
+for(i in 1:length(data_frames)){
   results_boot_mi_percentile_uncon[[i]] <- 
-    boot_mi_percentile(data_w_missing[[i]], seed[[i]], times[[i]])
+    boot_mi_percentile(data_frames[[i]], seed[[i]], times[[i]])
 }
 
 # Congenial needs to take place in two phases to accomodate the interaction term. 
@@ -510,7 +565,10 @@ for(i in 1:length(data_frames)){
  imputed_dfs_part_one[[i]] <- bootMice(data_frames[[i]] %>%
                           dplyr::filter(V3 == "0"), nBoot = times[[i]], nImp = 5, nCores = 8, seed = seed[[i]])
 }
-  
+
+plan(multisession, workers = parallel::detectCores())
+filtered <- future_map(data_frames, ~dplyr::filter(.x,, V3 == "1")) 
+
 # Impute only V3 ==1
 imputed_dfs_part_two <- c()
 pb <- txtProgressBar(min = 0,      
@@ -519,54 +577,72 @@ pb <- txtProgressBar(min = 0,
                      width = 50,   
                      char = "=")  
 
-for(i in 1:length(data_frames)){
-  imputed_dfs_part_two[[i]] <- bootMice(data_frames[[i]] %>%
-                                          dplyr::filter(V3 == "1"), nBoot = times[[i]], nImp = 5, nCores = 8, seed = seed[[i]], print = FALSE);
+for(i in 1:length(filtered)){
+  imputed_dfs_part_two[[i]] <- bootMice(filtered[[i]], nBoot = times[[i]], nImp = 5, nCores = 8, seed = seed[[i]], print = FALSE);
   setTxtProgressBar(pb, i)
 }
 close(pb)
 
 # rbind the two phases 
-combined_imputed_dfs <- c()
+
+combined_imputed_dfs <- vector("list", length = length(data_frames))
 
 for(i in 1:length(data_frames)){
-  combined_imputed_dfs[[i]] <- rbind(imputed_dfs_part_one[[i]], imputed_dfs_part_two[[i]])
+  for(z in 1:40){
+    combined_imputed_dfs[[i]][[z]] <- rbind(imputed_dfs_part_one[[i]][[z]], imputed_dfs_part_two[[i]][[z]])
+  }
 }
+
+plan(multisession, workers = parallel::detectCores())
+results_boot_mi_percentile_con <- future_map(combined_imputed_dfs, boot_mi_percentile_congenial)
 ```
 
 
 # Organization of Results 
-```{r}
-rubin_results_uncongenial 
-rubin_results_congenial
+```{r, eval=FALSE}
+new_names <- c("UB", "LB", "variance")
 
-results_mi_boot_rubin_uncon 
-results_mi_boot_rubin_con
+rubin_uncongenial_results_final <- lapply(rubin_uncongenial_results_final, setNames, new_names)
+rubin_congenial_results_final <- lapply(rubin_uncongenial_results_final, setNames, new_names)
 
-results_mi_boot_pooled_percentile_uncon 
-results_mi_boot_pooled_percentile_con 
+results_mi_boot_rubin_uncon <- lapply(results_mi_boot_rubin_uncon, setNames, new_names)
+results_mi_boot_rubin_con <- lapply(results_mi_boot_rubin_con, setNames, new_names)
 
-results_boot_mi_percentile_uncon 
-results_boot_mi_percentile_con 
+results_mi_boot_pooled_percentile_uncon <- lapply(results_mi_boot_pooled_percentile_uncon, setNames, new_names)
+results_mi_boot_pooled_percentile_con <- lapply(results_mi_boot_pooled_percentile_con, setNames, new_names)
+
+results_boot_mi_percentile_uncon <- lapply(results_boot_mi_percentile_uncon, setNames, new_names)
+results_boot_mi_percentile_con <- lapply(results_boot_mi_percentile_con, setNames, new_names)
+
+shiny_list_data <- list(rubin_uncongenial_results_final, 
+                     rubin_congenial_results_final, 
+                     results_mi_boot_rubin_uncon, 
+                     results_mi_boot_rubin_con, 
+                     results_mi_boot_pooled_percentile_uncon, 
+                     results_mi_boot_pooled_percentile_con, 
+                     results_boot_mi_percentile_uncon, 
+                     results_boot_mi_percentile_con)
 ```
 
 
 # Visual for results 
 ```{r, eval=FALSE}
-flat_list <- bind_rows(model_coefs_final)
+ci_plots <- function(data_set, x){
+  df <- data_set %>%
+    do.call(rbind.data.frame, .); 
+  
+  ggplot(df, aes(x = x, y = variance)) + 
+           geom_point() + 
+           geom_errorbar(aes(ymin = LB, ymax = UB)) + 
+           coord_flip() + 
+           theme_classic() + 
+    labs(
+      x = TeX("$i^{th} dataset"), 
+      y = TeX("$\\sigma^2")
+    )
+} 
 
-flat_list %>%
-  ggplot(aes(
-    x = variance,
-    y = ..scaled..,
-    color = as.factor(SampleID),
-    fill = as.factor(SampleID)
-  )) +
-  geom_density(alpha = .3) +
-  ggtitle(paste("Distribution of Estimated Variance of B_{V2}: B =", times, sep = "")) +
-  xlab("Estimate") +
-  ylab("Frequency") +
-  theme_minimal() +
-  theme(legend.title = element_blank())
+
+ci_plots(shiny_list_data[[5]][889:999], c(1:111))
 ```
 
