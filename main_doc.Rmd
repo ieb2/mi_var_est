@@ -624,13 +624,15 @@ shiny_list_data <- list(rubin_uncongenial_results_final,
                      results_boot_mi_percentile_con)
 
 p <- imap(.x = rubin_uncongenial_results_final, .f = ~transform(.x, method = "rubin", type = "uncongenial", "n" = sample_size_vec[[.x]], p_mis = p_mis_vec[[.x]]))
-       
+```   
 
+
+```{r}
 appending_foo <- function(list_of_results, method, type){
   temp_list <- c()
   for(i in 1:999){
     temp_list[[i]] <- 
-      transform(rubin_uncongenial_results_final[[i]], method = "rubin", type = "uncongenial", "n" = sample_size_vec_repeated[[i]], p_mis = p_mis_vec[[i]])
+      transform(list_of_results[[i]], method = method, type = type, "n" = sample_size_vec_repeated[[i]], p_mis = p_mis_vec[[i]])
   }
   temp_df <- do.call(rbind.data.frame, temp_list)
   return(temp_df)
@@ -657,8 +659,6 @@ final_results_df <- rbind(rubin_uncongenial,
                       mi_boot_rubin_pooled_congenial, 
                       boot_mi_pooled_uncongenial, 
                       boot_mi_pooled_congenial)
-
-View(final_results_df)
 
 write_csv(final_results_df, file = "final_sim_results.csv")
 ```
