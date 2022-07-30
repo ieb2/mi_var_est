@@ -13,6 +13,9 @@ library(latex2exp)
 results <- read_csv("final_sim_results.csv", show_col_types = FALSE)
 results$method <- as.factor(results$method)
 results$type <- as.factor(results$type)
+
+results <- results %>%
+  dplyr::select(-"...1")
 ```
 
 ```{r}
