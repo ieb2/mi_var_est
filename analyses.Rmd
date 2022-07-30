@@ -1,0 +1,59 @@
+---
+title: "Analyses"
+author: "Samantha R. Seals & Ihsan E. Buker"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(latex2exp)
+
+results <- read_csv("final_sim_results.csv", show_col_types = FALSE)
+results$method <- as.factor(results$method)
+results$type <- as.factor(results$type)
+```
+
+```{r}
+ci_plots <- function(data_set, x){
+  df <- data_set %>%
+    do.call(rbind.data.frame, .); 
+  
+  ggplot(df, aes(x = x, y = variance)) + 
+           geom_point() + 
+           geom_errorbar(aes(ymin = LB, ymax = UB)) + 
+           coord_flip() + 
+           theme_classic() + 
+    labs(
+      x = TeX("$i^{th} dataset"), 
+      y = TeX("$\\sigma^2")
+    )
+}
+
+df_1 <- results %>%
+  filter(., type == "uncongenial", method == "rubin")
+
+df_2 <- results %>%
+  filter(., type == "congenial", method == "rubin")
+  
+ggplot(df, aes(x = c(1:nrow(df)), y = variance, color = method)) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin = LB, ymax = UB)) + 
+  coord_flip() + 
+  theme_classic() + 
+  labs(
+    x = TeX("$i^{th} dataset"), 
+    y = TeX("$\\sigma^2")
+  )
+  
+```
+
+```{r}
+df_1 <- results %>%
+  filter(., type == "uncongenial", method == "rubin")
+df_2 <- results %>%
+  filter(., type == "congenial", method == "rubin")
+df_1 == df_2
+```
+
