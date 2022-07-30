@@ -622,6 +622,45 @@ shiny_list_data <- list(rubin_uncongenial_results_final,
                      results_mi_boot_pooled_percentile_con, 
                      results_boot_mi_percentile_uncon, 
                      results_boot_mi_percentile_con)
+
+p <- imap(.x = rubin_uncongenial_results_final, .f = ~transform(.x, method = "rubin", type = "uncongenial", "n" = sample_size_vec[[.x]], p_mis = p_mis_vec[[.x]]))
+       
+
+appending_foo <- function(list_of_results, method, type){
+  temp_list <- c()
+  for(i in 1:999){
+    temp_list[[i]] <- 
+      transform(rubin_uncongenial_results_final[[i]], method = "rubin", type = "uncongenial", "n" = sample_size_vec_repeated[[i]], p_mis = p_mis_vec[[i]])
+  }
+  temp_df <- do.call(rbind.data.frame, temp_list)
+  return(temp_df)
+}
+
+rubin_uncongenial <- appending_foo(rubin_uncongenial_results_final, "rubin", "uncongenial")
+rubin_congenial <- appending_foo(rubin_congenial_results_final, "rubin", "congenial")
+
+mi_boot_rubin_uncongenial <- appending_foo(results_mi_boot_rubin_uncon, "mi_boot_rubin", "uncongenial")
+mi_boot_rubin_congenial <- appending_foo(results_mi_boot_rubin_con, "mi_boot_rubin", "congenial")
+
+mi_boot_rubin_pooled_uncongenial <- appending_foo(results_mi_boot_pooled_percentile_uncon, "mi_boot_rubin_pooled", "uncongenial")
+mi_boot_rubin_pooled_congenial <- appending_foo(results_mi_boot_pooled_percentile_con, "mi_boot_rubin_pooled", "congenial")      
+
+boot_mi_pooled_uncongenial <- appending_foo(results_boot_mi_percentile_uncon, "boot_mi_pooled", "uncongenial")   
+boot_mi_pooled_congenial <- appending_foo(results_boot_mi_percentile_con, "boot_mi_pooled", "congenial")   
+
+
+final_results_df <- rbind(rubin_uncongenial, 
+                      rubin_congenial, 
+                      mi_boot_rubin_uncongenial, 
+                      mi_boot_rubin_congenial, 
+                      mi_boot_rubin_pooled_uncongenial, 
+                      mi_boot_rubin_pooled_congenial, 
+                      boot_mi_pooled_uncongenial, 
+                      boot_mi_pooled_congenial)
+
+View(final_results_df)
+
+write_csv(final_results_df, file = "final_sim_results.csv")
 ```
 
 
