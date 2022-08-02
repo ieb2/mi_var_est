@@ -74,18 +74,22 @@ server <- function(input, output) {
             dplyr::filter(type == as.name(input$"type_select")) %>%
             dplyr::filter(n == as.name(input$"sample_size_select")) %>%
             dplyr::filter(p_mis == as.name(input$"percent_missing_select"))
+            
+        df_jit <- df + matrix(rnorm(nrow(df) * ncol(df), sd = 0.1), ncol = ncol(df))
         
-        output$table <- renderDataTable(df %>%
+        output$table <- renderDataTable(df_jit %>%
                                             dplyr::select("UB", "LB", "variance") %>%
                                             mutate(across(is.numeric, round, digits = 2)))
         output$summary_stats <- 
-            renderTable(tibble("Median C.I width" = median(df$UB - df$LB), 
-                       "Median estimated variance " = median(df$variance)))
+            renderTable(tibble("Median C.I width" = median(df_jit$UB - df_jit$LB), 
+                               "Median estimated variance " = median(df_jit$variance), 
+                        "Estimated variance (complete)" = case_when(
+                            input$"sample_size_select" == 500 ~ 9.52, 
+                            input$"sample_size_select" == 1000 ~ 6.32, 
+                            input$"sample_size_select" == 10000 ~ 7.48)))
         
-        # draw the histogram with the specified number of bins
         
-        
-        ggplot(df, aes(x = c(1:nrow(df)), y = variance)) + 
+        ggplot(df_jit, aes(x = c(1:nrow(df_jit)), y = variance)) + 
             geom_point(aes(color = "red")) + 
             geom_errorbar(aes(ymin = LB, ymax = UB, alpha = 0.5)) + 
             coord_flip() + 
@@ -94,9 +98,16 @@ server <- function(input, output) {
                 x = latex2exp::TeX("$i^{th} dataset"), 
                 y = latex2exp::TeX("$\\widehat{\\sigma^2}")
             ) + 
-            theme(legend.position="none")
+            theme(legend.position="none") + 
+            geom_hline(yintercept = case_when(
+                input$"sample_size_select" == 500 ~ 9.52, 
+                input$"sample_size_select" == 1000 ~ 6.32, 
+                input$"sample_size_select" == 10000 ~ 7.48),
+                lwd=1,colour="lightblue")
         
     })
+    
+    
 }
 
 # Run the application 

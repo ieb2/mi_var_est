@@ -18,7 +18,7 @@ editor_options:
     * Combine point estimates and CIs 
     * Literature focuses on CI comparison 
   * Random question
-    * 
+
 # Dependencies 
 ```{r}
 library(tidyverse)
@@ -37,7 +37,7 @@ library(bootImpute) # For boot_mi_percentile
 
 # Data Generation 
 ```{r}
-data_generator <- function(sample_size, prop, seed){
+data_generator <- function(sample_size, seed){
   set.seed(seed)
   cor_mat <- matrix(c(1, 0.5, 0.5, 
                       0.5, 1, 0.5, 
@@ -58,16 +58,16 @@ data_generator <- function(sample_size, prop, seed){
   data_complete <- cbind(outcome_variable, covariates)
   data_complete$V3 <- as.factor(data_complete$V3)
   
-  data_w_missing <- ampute(data_complete, prop = prop, mech = "MAR", patterns = c(0, 1, 1, 1))$amp
+  #data_w_missing <- ampute(data_complete, prop = prop, mech = "MAR", patterns = c(0, 1, 1, 1))$amp
   
-  data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
+  #data_w_missing$V3 <- as.factor(ifelse(data_w_missing$V3 == 1, 0, 1))
   
   # "outcome_variable" is an outcome variable with 30% MAR. Covariates are fully observed. 
   
   # The analysis model is outcome_variable ~ V1 + V2 + V3 + V2*V3 + epsilon 
   # We are interested in estimating var(beta*V2)
   
-  return(data_w_missing)
+  return(data_complete)
 }
 
 # The influence of V2 on outcome var is different for values of V3
@@ -78,6 +78,7 @@ data_generator <- function(sample_size, prop, seed){
 ```{r, eval=FALSE}
 # Congenial imputation 
 # To accomodate interaction V3 == 0 and V3 == 1 are imputed independently and combined. See van Buuren "Derived Vars" 
+data_complete <- data_generator(100000, seed = 123)
 
 part_one_con_imp <- 
   data_w_missing %>% 
@@ -101,11 +102,21 @@ uncon_imp_data <- complete(uncon_imp, "long")
 # Full data analysis 
 ```{r, eval = FALSE}
 # Fitting analysis model 
+
 lm(outcome_variable ~ V1 + V2 + V3 + V2*V3, data = data_complete) %>% 
   summary() %>%
   broom::tidy() %>%
   dplyr::filter(term == "V2") %>%
-  dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2)
+  dplyr::mutate(variance = {std.error*{100000^{1/2}}}^2)
+
+
+sample_size <- nrow(complete(con_imputed_data_frames[[i]],1))
+  rubin_results_congenial[[i]] <- try(con_imputed_data_frames[[i]] %>%
+    complete(., "long") %>%
+    by(as.factor(.$.imp), lm, formula = outcome_variable ~ V1 + V2 + V3 +  V2*V3) %>%
+    pool() %>%
+    summary() %>%
+    dplyr::mutate(variance = {std.error*{sample_size^{1/2}}}^2))
 ```
 
 
@@ -319,6 +330,8 @@ mi_boot_rubin <- function(uncon_imp_data, seed, times){
   return(data.frame(UB, LB, "point_estimate" = sample_mean))
   
 }
+
+mi_boot_rubin()
 ```
 
 ```{r}
