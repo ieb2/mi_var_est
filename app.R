@@ -4,7 +4,7 @@ library(shinythemes)
 library(latex2exp)
 set.seed(23479)
 
-results <- read_csv("~/Desktop/Personal Documents/mi_var_est/final_sim_results.csv", show_col_types = FALSE)
+results <- read_csv("final_sim_results.csv", show_col_types = FALSE)
 results$method <- as.factor(results$method)
 results$type <- as.factor(results$type)
 
