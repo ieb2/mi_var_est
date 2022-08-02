@@ -6,14 +6,13 @@ output: html_document
 bibliography: bib.bib
 biblio-style: "apalike"
 link_citations: true
-runtime: shiny
 ---
 
 # Background 
 Missing data is an issue ubiquitous in many fields of science. Given that statistical procedures often require data to be fully observed, there has long been an interest and need to manage missing data in a way that allows researchers to reach valid conclusions. Today, multiple imputation is accepted as the gold standard in missing data analysis, in no short thanks to the work of Donald Rubin [@buuren_flexible_2012]. In 1977, Rubin proposed using multiple completed versions of the dataset with missing observations, applying the complete-data procedure of interest, and pooling the estimates to draw valid inferences [@buuren_flexible_2012]. The main advantage of multiple imputation, as opposed to single imputation, which had been used by researchers since the early 1970s, is its ability to properly estimate the variance caused by missing observations [@Efron_1994]. The emphasis placed on variance and uncertainty by Rubin was a departure from the status quo of the time, which was to fill in the missing observation with the most probable value and to proceed with complete case analyses as if the observation had not been missing, to begin with [@buuren_flexible_2012]. This approach, however, fails to incorporate the loss of information caused by missing observations into the estimation of parameters, resulting in the underestimation of variance [@rubin1978multiple]. 
 
 
-Like all revolutionary ideas, multiple imputation received harsh criticism following its conception. Perhaps the most notable of the objections came from Fay in 1992, who demonstrated through counterexamples that multiple imputation produced biased covariance estimates [@bartlett_bootstrap_2020]. Fay added the need for unison between the imputation and analysis model made multiple imputation a poor general-purpose tool, particularly in instances where the imputer and analyst are different individuals [@fay1992inferences; @buuren_flexible_2012]. Fay's arguments led to the conceptualization of congeniality^[Please see Appendix B for a formal definition of congeniality.] between the imputation and analysis model, which was later accepted to be a requirement to obtain valid inferences from multiple imputation using Rubin's pooling rules [@buuren_flexible_2012; @meng_multiple-imputation_1994]. Although Fay's work initially criticized biases introduced to the covariance matrix following multiple imputation, a similar phenomenon of biased estimations were observed with variance under uncongeniality [@fay1992inferences; @meng_multiple-imputation_1994; @xie_dissecting_2016]. 
+Like all revolutionary ideas, multiple imputation received harsh criticism following its conception. Perhaps the most notable of the objections came from Fay in 1992, who demonstrated through counterexamples that multiple imputation produced biased covariance estimates [@bartlett_bootstrap_2020]. Fay added the need for unison between the imputation and analysis model made multiple imputation a poor general-purpose tool, particularly in instances where the imputer and analyst are different individuals [@fay1992inferences; @buuren_flexible_2012]. Fay's arguments led to the conceptualization of congeniality between the imputation and analysis model, which was later accepted to be a requirement to obtain valid inferences from multiple imputation using Rubin's pooling rules [@buuren_flexible_2012; @meng_multiple-imputation_1994]. Although Fay's work initially criticized biases introduced to the covariance matrix following multiple imputation, a similar phenomenon of biased estimations were observed with variance under uncongeniality [@fay1992inferences; @meng_multiple-imputation_1994; @xie_dissecting_2016]. 
 
 Some of the earliest works demonstrating Rubin's variance estimator to be biased under uncongeniality were from Wang_1998 and Robins in 1998, who also proposed an alternate variance estimator in the same paper [@buuren_flexible_2012]. The variance estimator proposed by Wang and Robins requires the calculation of several quantities, which are not easily accessible to the average statistical practitioner [@bartlett_bootstrap_2020]. The challenging construction of the variance estimator proposed by Wang and Robins has resulted in it receiving little-to-no attention in applied settings [@bartlett_bootstrap_2020]. In an attempt to create a more user-friendly variance estimator in instances of suspected uncongeniality, researchers have proposed combining resampling methods with multiple imputation. Of the two main resampling methods, bootstrap has received more attention from multiple imputation researchers compared to jackknife resampling, which has mostly been investigated under single hot-deck imputation. Although particular combinations of bootstrap and multiple imputation have been demonstrated to create asymptotically unbiased estimates of variance, the associated computational cost makes this an active area of research [@bartlett_bootstrap_2020]. Most recently, von Hippel has proposed a bootstrap variance estimator which addresses the issue of computational cost; however, it has been demonstrated to create confidence intervals that are slightly wider compared to traditional bootstrap and multiple imputation combinations [@bartlett_bootstrap_2020]. Given the lower computational cost associated with jackknife resampling, as well as desirable properties demonstrated under single imputation, such as being unbiased in certain scenarios, it is an attractive alternative that should be considered as a variance estimator of multiply imputed data under uncongeniality [@chen_jackknife_2001; @rao_jackknife_1992].  
 
@@ -80,140 +79,3 @@ If the foregoing conditions are met, $f$ is said to be second-moment congenial t
 ### Definition 2 
 
 The analysis procedure $\mathscr{P}$ is said to be congenial to the imputation model $g(Y_{miss}|Z_o, A)$ where $A$ represents possible additional data the imputer has access to, if one can find an $f$ such that (**i**) $f$ is congenial to $\mathscr{P}$ and (**ii**) the posterior predictive density for $Y_{miss}$ derived under $f$ is identical to the imputation model $f(Y_{miss}|Z_o) = g(Y_{miss}|Z_o, A) \ \forall \ Y_{miss}$.  
-
-
-```{r, echo = FALSE, warning = FALSE}
-library(tidyverse)
-library(shiny)
-library(shinythemes)
-library(latex2exp)
-set.seed(23479)
-
-results <- suppressMessages(read_csv("~/Desktop/Personal Documents/mi_var_est/final_sim_results.csv", show_col_types = FALSE))
-results$method <- as.factor(results$method)
-results$type <- as.factor(results$type)
-
-results <- results %>%
-    dplyr::select(-"...1") %>%
-    mutate(true_var = case_when(
-        n == 500 ~ 9.52, 
-        n == 1000 ~ 6.32, 
-        n == 10000 ~ 7.48))
-
-methods <- 
-  list(
-    "Rubin's Rules" = "rubin", 
-    "MI Bootstrap Rubin" = "mi_boot_rubin", 
-    "MI Bootstrap Rubin Pooled" = "mi_boot_rubin_pooled", 
-    "Bootstrap MI Pooled" = "boot_mi_pooled") 
-types <- 
-  list("Uncongenial" = "uncongenial", 
-       "Congenial" = "congenial")
-sample_sizes <- 
-  list(500, 1000, 10000)
-p_miss <- 
-  list("10%" = 0.1, "30%" = 0.3, "50%" = 0.5)
-
-
-
-# Define UI for application
-ui <- fluidPage(theme = shinytheme("cerulean"), 
-                
-                # Application title
-                titlePanel("Variance Estimation in Multiply Imputed Datasets"),
-                
-                # Sidebar with a slider input for number of bins 
-                sidebarLayout(
-                    sidebarPanel(
-                        selectInput("method_select", 
-                                    label = "Select variance estimation method.", 
-                                    choices = methods,
-                                    selected = NULL,
-                                    multiple = FALSE, 
-                                    selectize = FALSE,
-                                    size = 5), 
-                        selectInput("type_select", 
-                                    label = "Select imputation method.", 
-                                    choices = types,
-                                    selected = NULL,
-                                    multiple = FALSE, 
-                                    selectize = FALSE,
-                                    size = 5), 
-                        selectInput("sample_size_select", 
-                                    label = "Select sample size.", 
-                                    choices = sample_sizes,
-                                    selected = NULL,
-                                    multiple = FALSE, 
-                                    selectize = FALSE,
-                                    size = 5), 
-                        selectInput("percent_missing_select", 
-                                    label = "Select percent of missing data.", 
-                                    choices = p_miss,
-                                    selected = NULL,
-                                    multiple = FALSE, 
-                                    selectize = FALSE,
-                                    size = 5), 
-                        tableOutput("summary_stats")
-                    ),
-                    
-                    # Show a plot of the generated distribution and the dataset 
-                    mainPanel(
-                        plotOutput("distPlot", width = "100%"),
-                        dataTableOutput('table')
-                    )
-                )
-)
-
-# Define server logic required to draw a histogram
-server <- function(input, output) {
-   
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        df <- results %>%
-            dplyr::filter(method == as.name(input$"method_select")) %>%
-            dplyr::filter(type == as.name(input$"type_select")) %>%
-            dplyr::filter(n == as.name(input$"sample_size_select")) %>%
-            dplyr::filter(p_mis == as.name(input$"percent_missing_select")) %>%
-            dplyr::select(-method, -type)
-        
-        df_jit <- df + matrix(rnorm(nrow(df) * ncol(df), sd = 0.1), ncol = ncol(df))
-        
-        
-        output$table <- renderDataTable(df_jit %>%
-                                            dplyr::select("UB", "LB", "variance") %>%
-                                            mutate(across(is.numeric, round, digits = 2)))
-        output$summary_stats <- 
-            renderTable(tibble("Median C.I width" = median(df_jit$UB - df_jit$LB), 
-                               "Median estimated variance " = median(df_jit$variance), 
-                               "Estimated variance (complete)" = case_when(
-                                   input$"sample_size_select" == 500 ~ 9.52, 
-                                   input$"sample_size_select" == 1000 ~ 6.32, 
-                                   input$"sample_size_select" == 10000 ~ 7.48), 
-                               "C.I Coverage (95%)" = round((sum(df_jit$true_var < df_jit$UB & df_jit$true_var > df_jit$LB) / nrow(df_jit))*100,2)))
-        
-        
-        ggplot(df_jit, aes(x = c(1:nrow(df_jit)), y = variance)) + 
-            geom_point(aes(color = "red")) + 
-            geom_errorbar(aes(ymin = LB, ymax = UB, alpha = 1)) + 
-            coord_flip() + 
-            theme_classic() + 
-            labs(
-                x = latex2exp::TeX("$i^{th} dataset"), 
-                y = latex2exp::TeX("$\\widehat{\\sigma^2}")
-            ) + 
-            theme(legend.position="none") + 
-            geom_hline(yintercept = case_when(
-                input$"sample_size_select" == 500 ~ 9.52, 
-                input$"sample_size_select" == 1000 ~ 6.32, 
-                input$"sample_size_select" == 10000 ~ 7.48),
-                lwd=2,colour="lightblue")
-        
-    })
-    
-    
-}
-
-# Run the application 
-shinyApp(ui = ui, server = server)
-```
-
