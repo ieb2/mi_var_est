@@ -15,26 +15,11 @@ results$method <- as.factor(results$method)
 results$type <- as.factor(results$type)
 
 results <- results %>%
-  dplyr::select(-"...1")
-
-df <- results
-```
-
-```{r}
-df_mod <- df %>%
+  dplyr::select(-"...1") %>%
   mutate(true_var = case_when(
     n == 500 ~ 9.52, 
     n == 1000 ~ 6.32, 
     n == 10000 ~ 7.48))
-
-df_filtered <- df_mod %>%
-  filter(type == "congenial", method == "boot_mi_rubin")
-
-results <- c()
-for (i in 1:nrow(df_filtered)){
-  results[i] <- between(df_filtered$true_var[i], df_filtered$LB[i], df_filtered$UB[i])
-}
-
-sum(results)/length(results) * 100 
 ```
+
 
