@@ -1,7 +1,34 @@
+library(tidyverse)
 library(shiny)
 library(shinythemes)
 library(latex2exp)
 set.seed(23479)
+
+results <- read_csv("~/Desktop/Personal Documents/mi_var_est/final_sim_results.csv", show_col_types = FALSE)
+results$method <- as.factor(results$method)
+results$type <- as.factor(results$type)
+
+results <- results %>%
+    dplyr::select(-"...1") %>%
+    mutate(true_var = case_when(
+        n == 500 ~ 9.52, 
+        n == 1000 ~ 6.32, 
+        n == 10000 ~ 7.48))
+
+methods <- 
+  list(
+    "Rubin's Rules" = "rubin", 
+    "MI Bootstrap Rubin" = "mi_boot_rubin", 
+    "MI Bootstrap Rubin Pooled" = "mi_boot_rubin_pooled", 
+    "Bootstrap MI Pooled" = "boot_mi_pooled") 
+types <- 
+  list("Uncongenial" = "uncongenial", 
+       "Congenial" = "congenial")
+sample_sizes <- 
+  list(500, 1000, 10000)
+p_miss <- 
+  list("10%" = 0.1, "30%" = 0.3, "50%" = 0.5)
+
 
 
 # Define UI for application
@@ -54,20 +81,7 @@ ui <- fluidPage(theme = shinytheme("cerulean"),
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-    methods <- 
-        list(
-            "Rubin's Rules" = "rubin", 
-            "MI Bootstrap Rubin" = "mi_boot_rubin", 
-            "MI Bootstrap Rubin Pooled" = "mi_boot_rubin_pooled", 
-            "Bootstrap MI Pooled" = "boot_mi_pooled") 
-    types <- 
-        list("Uncongenial" = "uncongenial", 
-             "Congenial" = "congenial")
-    sample_sizes <- 
-        list(500, 1000, 10000)
-    p_miss <- 
-        list("10%" = 0.1, "30%" = 0.3, "50%" = 0.5)
-    
+   
     output$distPlot <- renderPlot({
         # generate bins based on input$bins from ui.R
         df <- results %>%
