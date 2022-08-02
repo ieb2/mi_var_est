@@ -1,6 +1,7 @@
 library(shiny)
 library(shinythemes)
 library(latex2exp)
+set.seed(23479)
 
 
 # Define UI for application
@@ -94,7 +95,7 @@ server <- function(input, output) {
         
         ggplot(df_jit, aes(x = c(1:nrow(df_jit)), y = variance)) + 
             geom_point(aes(color = "red")) + 
-            geom_errorbar(aes(ymin = LB, ymax = UB, alpha = 0.5)) + 
+            geom_errorbar(aes(ymin = LB, ymax = UB, alpha = 1)) + 
             coord_flip() + 
             theme_classic() + 
             labs(
