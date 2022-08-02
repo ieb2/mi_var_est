@@ -98,13 +98,13 @@ server <- function(input, output) {
                                             dplyr::select("UB", "LB", "variance") %>%
                                             mutate(across(is.numeric, round, digits = 2)))
         output$summary_stats <- 
-            renderTable(tibble("Median C.I width" = median(df_jit$UB - df_jit$LB), 
-                               "Median estimated variance " = median(df_jit$variance), 
+            renderTable(tibble("Median C.I width" = median(df$UB - df$LB), 
+                               "Median estimated variance " = median(df$variance), 
                                "Estimated variance (complete)" = case_when(
                                    input$"sample_size_select" == 500 ~ 9.52, 
                                    input$"sample_size_select" == 1000 ~ 6.32, 
                                    input$"sample_size_select" == 10000 ~ 7.48), 
-                               "C.I Coverage (95%)" = round((sum(df_jit$true_var < df_jit$UB & df_jit$true_var > df_jit$LB) / nrow(df_jit))*100,2)))
+                               "C.I Coverage (95%)" = round((sum(df$true_var < df$UB & df$true_var > df$LB) / nrow(df))*100,2)))
         
         
         ggplot(df_jit, aes(x = c(1:nrow(df_jit)), y = variance)) + 

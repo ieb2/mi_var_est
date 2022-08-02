@@ -401,72 +401,77 @@ that statistical procedures often require data to be fully observed,
 there has long been an interest and need to manage missing data in a way
 that allows researchers to reach valid conclusions. Today, multiple
 imputation is accepted as the gold standard in missing data analysis, in
-no short thanks to the work of Donald Rubin <span class="citation">(Buuren 2012)</span>. In 1977, Rubin proposed using
-multiple completed versions of the dataset with missing observations,
-applying the complete-data procedure of interest, and pooling the
-estimates to draw valid inferences <span class="citation">(Buuren
-2012)</span>. The main advantage of multiple imputation, as opposed to
-single imputation, which had been used by researchers since the early
-1970s, is its ability to properly estimate the variance caused by
-missing observations <span class="citation">(Efron 1994)</span>. The
-emphasis placed on variance and uncertainty by Rubin was a departure
-from the status quo of the time, which was to fill in the missing
-observation with the most probable value and to proceed with complete
-case analyses as if the observation had not been missing, to begin with
-<span class="citation">(Buuren 2012)</span>. This approach, however,
+no short thanks to the work of Donald Rubin <span class="citation">[@buuren_flexible_2012]</span>. In 1977, Rubin proposed
+using multiple completed versions of the dataset with missing
+observations, applying the complete-data procedure of interest, and
+pooling the estimates to draw valid inferences <span class="citation">[@buuren_flexible_2012]</span>. The main advantage of
+multiple imputation, as opposed to single imputation, which had been
+used by researchers since the early 1970s, is its ability to properly
+estimate the variance caused by missing observations <span class="citation">[@Efron_1994]</span>. The emphasis placed on variance
+and uncertainty by Rubin was a departure from the status quo of the
+time, which was to fill in the missing observation with the most
+probable value and to proceed with complete case analyses as if the
+observation had not been missing, to begin with <span class="citation">[@buuren_flexible_2012]</span>. This approach, however,
 fails to incorporate the loss of information caused by missing
 observations into the estimation of parameters, resulting in the
-underestimation of variance <span class="citation">(Rubin
-1978)</span>.</p>
+underestimation of variance <span class="citation">[@rubin1978multiple]</span>.</p>
 <p>Like all revolutionary ideas, multiple imputation received harsh
 criticism following its conception. Perhaps the most notable of the
 objections came from Fay in 1992, who demonstrated through
 counterexamples that multiple imputation produced biased covariance
-estimates <span class="citation">(Bartlett and Hughes 2020)</span>. Fay
+estimates <span class="citation">[@bartlett_bootstrap_2020]</span>. Fay
 added the need for unison between the imputation and analysis model made
 multiple imputation a poor general-purpose tool, particularly in
-instances where the imputer and analyst are different individuals <span class="citation">(Fay 1992; Buuren 2012)</span>. Fay’s arguments led to
-the conceptualization of congeniality between the imputation and
-analysis model, which was later accepted to be a requirement to obtain
-valid inferences from multiple imputation using Rubin’s pooling rules
-<span class="citation">(Buuren 2012; Meng 1994)</span>. Although Fay’s
-work initially criticized biases introduced to the covariance matrix
-following multiple imputation, a similar phenomenon of biased
-estimations were observed with variance under uncongeniality <span class="citation">(Fay 1992; Meng 1994; Xie and Meng 2016)</span>.</p>
+instances where the imputer and analyst are different individuals <span class="citation">[@fay1992inferences; @buuren_flexible_2012]</span>.
+Fay’s arguments led to the conceptualization of congeniality between the
+imputation and analysis model, which was later accepted to be a
+requirement to obtain valid inferences from multiple imputation using
+Rubin’s pooling rules <span class="citation">[@buuren_flexible_2012;
+@meng_multiple-imputation_1994]</span>. Although Fay’s work initially
+criticized biases introduced to the covariance matrix following multiple
+imputation, a similar phenomenon of biased estimations were observed
+with variance under uncongeniality <span class="citation">[@fay1992inferences; @meng_multiple-imputation_1994;
+@xie_dissecting_2016]</span>.</p>
 <p>Some of the earliest works demonstrating Rubin’s variance estimator
 to be biased under uncongeniality were from Wang_1998 and Robins in
 1998, who also proposed an alternate variance estimator in the same
-paper <span class="citation">(Buuren 2012)</span>. The variance
-estimator proposed by Wang and Robins requires the calculation of
-several quantities, which are not easily accessible to the average
-statistical practitioner <span class="citation">(Bartlett and Hughes
-2020)</span>. The challenging construction of the variance estimator
-proposed by Wang and Robins has resulted in it receiving little-to-no
-attention in applied settings <span class="citation">(Bartlett and
-Hughes 2020)</span>. In an attempt to create a more user-friendly
-variance estimator in instances of suspected uncongeniality, researchers
-have proposed combining resampling methods with multiple imputation. Of
-the two main resampling methods, bootstrap has received more attention
-from multiple imputation researchers compared to jackknife resampling,
-which has mostly been investigated under single hot-deck imputation.
-Although particular combinations of bootstrap and multiple imputation
-have been demonstrated to create asymptotically unbiased estimates of
-variance, the associated computational cost makes this an active area of
-research <span class="citation">(Bartlett and Hughes 2020)</span>. Most
-recently, von Hippel has proposed a bootstrap variance estimator which
-addresses the issue of computational cost; however, it has been
-demonstrated to create confidence intervals that are slightly wider
-compared to traditional bootstrap and multiple imputation combinations
-<span class="citation">(Bartlett and Hughes 2020)</span>. Given the
-lower computational cost associated with jackknife resampling, as well
-as desirable properties demonstrated under single imputation, such as
-being unbiased in certain scenarios, it is an attractive alternative
-that should be considered as a variance estimator of multiply imputed
-data under uncongeniality <span class="citation">(Chen and Shao 2001;
-Rao and Shao 1992)</span>.</p>
+paper <span class="citation">[@buuren_flexible_2012]</span>. The
+variance estimator proposed by Wang and Robins requires the calculation
+of several quantities, which are not easily accessible to the average
+statistical practitioner <span class="citation">[@bartlett_bootstrap_2020]</span>. The challenging
+construction of the variance estimator proposed by Wang and Robins has
+resulted in it receiving little-to-no attention in applied settings
+<span class="citation">[@bartlett_bootstrap_2020]</span>. In an attempt
+to create a more user-friendly variance estimator in instances of
+suspected uncongeniality, researchers have proposed combining resampling
+methods with multiple imputation. Of the two main resampling methods,
+bootstrap has received more attention from multiple imputation
+researchers compared to jackknife resampling, which has mostly been
+investigated under single hot-deck imputation. Although particular
+combinations of bootstrap and multiple imputation have been demonstrated
+to create asymptotically unbiased estimates of variance, the associated
+computational cost makes this an active area of research <span class="citation">[@bartlett_bootstrap_2020]</span>. Most recently, von
+Hippel has proposed a bootstrap variance estimator which addresses the
+issue of computational cost; however, it has been demonstrated to create
+confidence intervals that are slightly wider compared to traditional
+bootstrap and multiple imputation combinations <span class="citation">[@bartlett_bootstrap_2020]</span>. Given the lower
+computational cost associated with jackknife resampling, as well as
+desirable properties demonstrated under single imputation, such as being
+unbiased in certain scenarios, it is an attractive alternative that
+should be considered as a variance estimator of multiply imputed data
+under uncongeniality <span class="citation">[@chen_jackknife_2001;
+@rao_jackknife_1992]</span>.</p>
 </div>
-<div id="research-questions-presented" class="section level1">
-<h1>Research Questions Presented</h1>
+<div id="research-goals" class="section level1">
+<h1>Research Goals</h1>
+<div id="long-term" class="section level2">
+<h2>Long-Term</h2>
+<p>The long-term goal of this research project is to develop a jackknife
+variance estimator that can provide asymptotically unbiased estimates
+under uncongeniality at a reasonable computational cost, namely, one
+that can easily be attained in applied settings. The long-term goals of
+this research project may be particularized by the following set of
+questions presented.</p>
 <ul>
 <li><p>What are the properties of the jackknife variance estimator in
 multiply imputed datasets, namely, datasets containing missing outcome
@@ -485,6 +490,29 @@ the jackknife estimator, are they negligible given the decreased
 computational cost?</p></li>
 </ul>
 </div>
+<div id="short-term" class="section level2">
+<h2>Short-Term</h2>
+<p>The short-term goal of this research project was to examine various
+characteristics of robust variance estimation methods in the literature,
+such as the bias of the point estimator, confidence interval width,
+coverage probability, and computational cost. The methods examined draw
+from Bayesian and frequentist frameworks to construct various estimators
+using bootstrap resampling combined with multiple imputation. The
+short-term goals of this project may be particularized by the following
+set of questions presented.</p>
+<ul>
+<li><p>How does the quality of the point estimator obtained by different
+methods vary under differing sample sizes, percentage of missing data,
+and congeniality?</p></li>
+<li><p>How do the characteristics of the confidence interval obtained by
+different methods vary under differing sample sizes, percentage of
+missing data, and congeniality?</p></li>
+<li><p>How does the computational expense of the different methods
+compare to one another, and can they realistically be performed in
+applied settings?</p></li>
+</ul>
+</div>
+</div>
 <div id="research-methods" class="section level1">
 <h1>Research Methods</h1>
 <p>For the proposed Monte Carlo simulation, <span class="math inline">\(N\)</span> = 999 datasets will be generated with
@@ -494,86 +522,71 @@ is missing at random (MAR), and an <span class="math inline">\(n \times
 q\)</span> matrix of fully observed covariates, where <span class="math inline">\(n \in \{500, 1000, 10000\}\)</span> is the sample
 size, and <span class="math inline">\(q = 3\)</span> is the number of
 covariates. Moreover, two of the covariates will be simulated such that
-there is an interaction between them. During the imputation phase of the
+there is an interaction between them.During the imputation phase of the
 study, the uncongenial imputation model will ignore such interaction,
-whereas the congenial imputation model will accommodate it.</p>
+whereas the congenial imputation model will accommodate it by imputing
+the data in two different parts.</p>
 <p>Each of the <span class="math inline">\(N\)</span> datasets generated
-with the foregoing characteristics will be imputed using the function.
-In order to determine <span class="math inline">\(m\)</span>, which
-represents the number of complete datasets to be generated per <span class="math inline">\(N\)</span>, von Hippel’s two-stage <span class="math inline">\(m\)</span> calculator will be utilized <span class="citation">(Hippel 2020)</span>. The imputation process will be
-visually monitored for convergence using a pilot study with small <span class="math inline">\(N\)</span>, which will help determine the maximum
-number of iterations each combination of <span class="math inline">\(N\)</span> and <span class="math inline">\(m\)</span> are allowed to go through. Finally, the
+with the foregoing characteristics will be imputed using the <span class="math inline">\(\texttt{mice()}\)</span> function. In order to
+determine <span class="math inline">\(m\)</span>, which represents the
+number of complete datasets to be generated per <span class="math inline">\(N\)</span>, von Hippel’s two-stage <span class="math inline">\(m\)</span> calculator will be utilized <span class="citation">[@von_Hippel_2020]</span>. The imputation process will
+be visually monitored for convergence using a pilot study with small
+<span class="math inline">\(N\)</span>, which will help determine the
+maximum number of iterations each combination of <span class="math inline">\(N\)</span> and <span class="math inline">\(m\)</span> are allowed to go through. Finally, the
 imputation method for the outcome variable will be predictive mean
 matching.</p>
-<p>Initially, the imputation model utilized by will be uncongenial to
+<p>Initially, the imputation model utilized by <span class="math inline">\(\texttt{mice()}\)</span> will be uncongenial to
 the analysis model, per the definition of congeniality set forth in
 Appendix B. Thereafter, the analysis model of interest to estimate <span class="math inline">\(\theta\)</span> will be applied to each of the
 <span class="math inline">\(m\)</span> datasets, and <span class="math inline">\(\text{var}(\hat{\theta})\)</span> will be
 estimated using the jackknife estimator. The foregoing process will be
 repeated under a congenial imputation and analysis model pairing, which
-will serve as the control. All analyses will be conducted using 4.2.0
-(Vigorous Calisthenics), alongside 3.14.0, 1.0.0, 1.2.0, and 1.3.1.</p>
+will serve as the control. All analyses will be conducted using <span class="math inline">\(\texttt{R}\)</span> 4.2.1 (Funny-Looking Kid),
+alongside <span class="math inline">\(\texttt{mice}\)</span> 3.14.0,
+<span class="math inline">\(\texttt{rsample}\)</span> 1.0.0, <span class="math inline">\(\texttt{bootImpute}\)</span> 1.2.0, and <span class="math inline">\(\texttt{tidyverse}\)</span> 1.3.1.</p>
+</div>
+<div id="results" class="section level1">
+<h1>Results</h1>
+<div id="general-observations" class="section level2">
+<h2>General observations</h2>
+<ul>
+<li>Somewhat poor C.I coverage across all methods and conditions.
+<ul>
+<li>High(er) M.C standard error (~1.2%) due to 10,000 iterations vs. 333
+iterations.</li>
+<li>Sub-optimal conditions (B = 5 vs. B = 200, m = 5 vs. m = 10)</li>
+</ul></li>
+<li>Increased sample size leads to narrower confidence intervals.</li>
+<li>Increased percentage of missing data leads to wider confidence
+intervals</li>
+<li>Increased sample size leads to higher coverage probability</li>
+<li>Compared to Rubin’s Rules, bootstrap methods have more accurate
+point estimates robust to changes in sample size.</li>
+<li>Bootstrap MI pooled had the highest coverage probability (~89.2% for
+n = 1000) under uncongeniality</li>
+<li>Bootstrap MI pooled had the least accurate point estimate under
+uncongeniality, but improved as n increased.</li>
+<li>Rubin’s Method had nearly no C.I coverage at high percentages of
+missing data, even under congeniality.</li>
+<li>Rubin’s Method is precise but inaccurate at high percentages of
+missing data.</li>
+</ul>
+</div>
+</div>
+<div id="discussion" class="section level1">
+<h1>Discussion</h1>
 </div>
 <div id="references" class="section level1">
 <h1>References</h1>
-<div id="refs" class="references csl-bib-body hanging-indent">
-<div id="ref-bartlett_bootstrap_2020" class="csl-entry">
-Bartlett, Jonathan W, and Rachael A Hughes. 2020. <span>“Bootstrap
-Inference for Multiple Imputation Under Uncongeniality and
-Misspecification.”</span> <em>Statistical Methods in Medical
-Research</em> 29 (12): 3533–46. <a href="https://doi.org/10.1177/0962280220932189">https://doi.org/10.1177/0962280220932189</a>.
-</div>
-<div id="ref-buuren_flexible_2012" class="csl-entry">
-Buuren, Stef van. 2012. <em>Flexible Imputation of Missing Data</em>.
-Chapman &amp; Hall/<span>CRC</span> Interdisciplinary Statistics Series.
-Boca Raton, <span>FL</span>: <span>CRC</span> Press.
-</div>
-<div id="ref-chen_jackknife_2001" class="csl-entry">
-Chen, Jiahua, and Jun Shao. 2001. <span>“Jackknife Variance Estimation
-for Nearest-Neighbor Imputation.”</span> <em>Journal of the American
-Statistical Association</em> 96 (453): 260–69. <a href="https://doi.org/10.1198/016214501750332839">https://doi.org/10.1198/016214501750332839</a>.
-</div>
-<div id="ref-Efron_1994" class="csl-entry">
-Efron, Bradley. 1994. <span>“Missing Data, Imputation, and the
-Bootstrap.”</span> <em>Journal of the American Statistical
-Association</em> 89 (426): 463–75. <a href="https://doi.org/10.1080/01621459.1994.10476768">https://doi.org/10.1080/01621459.1994.10476768</a>.
-</div>
-<div id="ref-fay1992inferences" class="csl-entry">
-Fay, Robert E. 1992. <span>“When Are Inferences from Multiple Imputation
-Valid?.”</span>
-</div>
-<div id="ref-von_Hippel_2020" class="csl-entry">
-Hippel, Paul T. von. 2020. <span>“How Many Imputations Do You Need? A
-Two-Stage Calculation Using a Quadratic Rule.”</span> <em>Sociological
-Methods &amp; Research</em> 49 (3): 699–718. <a href="https://doi.org/10.1177/0049124117747303">https://doi.org/10.1177/0049124117747303</a>.
-</div>
-<div id="ref-meng_multiple-imputation_1994" class="csl-entry">
-Meng, Xiao-Li. 1994. <span>“Multiple-Imputation Inferences with
-Uncongenial Sources of Input.”</span> <em>Statistical Science</em> 9
-(4): 538–58. <a href="https://doi.org/10.1214/ss/1177010269">https://doi.org/10.1214/ss/1177010269</a>.
-</div>
-<div id="ref-rao_jackknife_1992" class="csl-entry">
-Rao, J. N. K., and J. Shao. 1992. <span>“Jackknife Variance Estimation
-with Survey Data Under Hot Deck Imputation.”</span> <em>Biometrika</em>
-79 (4): 811–22. <a href="https://doi.org/10.2307/2337236">https://doi.org/10.2307/2337236</a>.
-</div>
-<div id="ref-rubin1978multiple" class="csl-entry">
-Rubin, Donald B. 1978. <span>“Multiple Imputations in Sample Surveys-a
-Phenomenological Bayesian Approach to Nonresponse.”</span> In
-<em>Proceedings of the Survey Research Methods Section of the American
-Statistical Association</em>, 1:20–34. American Statistical Association
-Alexandria, VA, USA.
-</div>
-<div id="ref-xie_dissecting_2016" class="csl-entry">
-Xie, Xianchao, and Xiao-Li Meng. 2016. <span>“Dissecting Multiple
-Imputation from a Multi-Phase Inference Perspective: What Happens When
-God’s, Imputer’s and Analyst’s Models Are Uncongenial?”</span>
-<em>Statistica Sinica</em>. <a href="https://doi.org/10.5705/ss.2014.067">https://doi.org/10.5705/ss.2014.067</a>.
-</div>
+<div id="refs">
+
 </div>
 </div>
 <div id="appendix" class="section level1">
 <h1>Appendix</h1>
+<div id="data" class="section level2">
+<h2>Data</h2>
+</div>
 <div id="notation" class="section level2">
 <h2>Notation</h2>
 <ul>

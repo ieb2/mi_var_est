@@ -3,7 +3,7 @@ title: "Jackknife Variance Estimator for Multiply Imputed Response Variables Und
 author: "Ihsan E. Buker & Samantha R. Seals"
 date: '`r Sys.Date()`'
 output: html_document
-bibliography: bib.bib
+#bibliography: bib.bib
 biblio-style: "apalike"
 link_citations: true
 ---
@@ -16,7 +16,10 @@ Like all revolutionary ideas, multiple imputation received harsh criticism follo
 
 Some of the earliest works demonstrating Rubin's variance estimator to be biased under uncongeniality were from Wang_1998 and Robins in 1998, who also proposed an alternate variance estimator in the same paper [@buuren_flexible_2012]. The variance estimator proposed by Wang and Robins requires the calculation of several quantities, which are not easily accessible to the average statistical practitioner [@bartlett_bootstrap_2020]. The challenging construction of the variance estimator proposed by Wang and Robins has resulted in it receiving little-to-no attention in applied settings [@bartlett_bootstrap_2020]. In an attempt to create a more user-friendly variance estimator in instances of suspected uncongeniality, researchers have proposed combining resampling methods with multiple imputation. Of the two main resampling methods, bootstrap has received more attention from multiple imputation researchers compared to jackknife resampling, which has mostly been investigated under single hot-deck imputation. Although particular combinations of bootstrap and multiple imputation have been demonstrated to create asymptotically unbiased estimates of variance, the associated computational cost makes this an active area of research [@bartlett_bootstrap_2020]. Most recently, von Hippel has proposed a bootstrap variance estimator which addresses the issue of computational cost; however, it has been demonstrated to create confidence intervals that are slightly wider compared to traditional bootstrap and multiple imputation combinations [@bartlett_bootstrap_2020]. Given the lower computational cost associated with jackknife resampling, as well as desirable properties demonstrated under single imputation, such as being unbiased in certain scenarios, it is an attractive alternative that should be considered as a variance estimator of multiply imputed data under uncongeniality [@chen_jackknife_2001; @rao_jackknife_1992].  
 
-# Research Questions Presented
+# Research Goals 
+
+## Long-Term 
+The long-term goal of this research project is to develop a jackknife variance estimator that can provide asymptotically unbiased estimates under uncongeniality at a reasonable computational cost, namely, one that can easily be attained in applied settings. The long-term goals of this research project may be particularized by the following set of questions presented. 
 
   * What are the properties of the jackknife variance estimator in multiply imputed datasets, namely, datasets containing missing outcome variables imputed through predictive mean matching? 
     
@@ -27,20 +30,87 @@ Some of the earliest works demonstrating Rubin's variance estimator to be biased
    * How does the proposed jackknife variance estimator compare to Rubin's rules, and bootstrap resampling methods in estimating the variance of multiply imputed variables under uncongeniality?
     
    * If any bias is noted in the variance estimates obtained through the jackknife estimator, are they negligible given the decreased computational cost? 
+
+## Short-Term 
+The short-term goal of this research project was to examine various characteristics of robust variance estimation methods in the literature, such as the bias of the point estimator, confidence interval width, coverage probability, and computational cost. The methods examined draw from Bayesian and frequentist frameworks to construct various estimators using bootstrap resampling combined with multiple imputation. The short-term goals of this project may be particularized by the following set of questions presented. 
+
+  * How does the quality of the point estimator obtained by different methods vary under differing sample sizes, percentage of missing data, and congeniality? 
+  
+  * How do the characteristics of the confidence interval obtained by different methods vary under differing sample sizes, percentage of missing data, and congeniality? 
+  
+  * How does the computational expense of the different methods compare to one another, and can they realistically be performed in applied settings? 
+
    
 # Research Methods 
 
-For the proposed Monte Carlo simulation, $N$ = 999 datasets will be generated with the following characteristics: A response variable, $Y$, with $p_{miss} \in \{0.10, 0.30, 0.50\}$ proportion of missing observations, where the mechanism of missingness is missing at random (MAR), and an $n \times q$ matrix of fully observed covariates, where $n \in \{500, 1000, 10000\}$ is the sample size, and $q = 3$ is the number of covariates. Moreover, two of the covariates will be simulated such that there is an interaction between them.  During the imputation phase of the study, the uncongenial imputation model will ignore such interaction, whereas the congenial imputation model will accommodate it.
+For the proposed Monte Carlo simulation, $N$ = 999 datasets will be generated with the following characteristics: A response variable, $Y$, with $p_{miss} \in \{0.10, 0.30, 0.50\}$ proportion of missing observations, where the mechanism of missingness is missing at random (MAR), and an $n \times q$ matrix of fully observed covariates, where $n \in \{500, 1000, 10000\}$ is the sample size, and $q = 3$ is the number of covariates. Moreover, two of the covariates will be simulated such that there is an interaction between them.During the imputation phase of the study, the uncongenial imputation model will ignore such interaction, whereas the congenial imputation model will accommodate it by imputing the data in two different parts.
 
-Each of the $N$ datasets generated with the foregoing characteristics will be imputed using the \texttt{mice()} function. In order to determine $m$, which represents the number of complete datasets to be generated per $N$, von Hippel's two-stage $m$ calculator will be utilized [@von_Hippel_2020]. The imputation process will be visually monitored for convergence using a pilot study with small $N$, which will help determine the maximum number of iterations each combination of $N$ and $m$ are allowed to go through. Finally, the imputation method for the outcome variable will be predictive mean matching. 
+Each of the $N$ datasets generated with the foregoing characteristics will be imputed using the $\texttt{mice()}$ function. In order to determine $m$, which represents the number of complete datasets to be generated per $N$, von Hippel's two-stage $m$ calculator will be utilized [@von_Hippel_2020]. The imputation process will be visually monitored for convergence using a pilot study with small $N$, which will help determine the maximum number of iterations each combination of $N$ and $m$ are allowed to go through. Finally, the imputation method for the outcome variable will be predictive mean matching. 
 
-Initially, the imputation model utilized by \texttt{mice()} will be uncongenial to the analysis model, per the definition of congeniality set forth in Appendix B. Thereafter, the analysis model of interest to estimate $\theta$ will be applied to each of the $m$ datasets, and $\text{var}(\hat{\theta})$ will be estimated using the jackknife estimator. The foregoing process will be repeated under a congenial imputation and analysis model pairing, which will serve as the control. All analyses will be conducted using \texttt{R} 4.2.0 (Vigorous Calisthenics), alongside \texttt{mice} 3.14.0, \texttt{rsample} 1.0.0, \texttt{bootImpute} 1.2.0, and \texttt{tidyverse} 1.3.1. 
+Initially, the imputation model utilized by $\texttt{mice()}$ will be uncongenial to the analysis model, per the definition of congeniality set forth in Appendix B. Thereafter, the analysis model of interest to estimate $\theta$ will be applied to each of the $m$ datasets, and $\text{var}(\hat{\theta})$ will be estimated using the jackknife estimator. The foregoing process will be repeated under a congenial imputation and analysis model pairing, which will serve as the control. All analyses will be conducted using $\texttt{R}$ 4.2.1 (Funny-Looking Kid), alongside $\texttt{mice}$ 3.14.0, $\texttt{rsample}$ 1.0.0, $\texttt{bootImpute}$ 1.2.0, and $\texttt{tidyverse}$ 1.3.1. 
+
+
+# Results 
+```{r, echo=FALSE, warning=FALSE}
+# Call in dependencies 
+suppressPackageStartupMessages(library(tidyverse))
+library(broom)
+# Read in data 
+final_sim_results <- suppressMessages(read_csv("final_sim_results.csv") %>%
+                                        dplyr::select(-"...1"))
+
+# Organize data 
+final_sim_results$method <- as.factor(final_sim_results$method)
+final_sim_results$type  <- as.factor(final_sim_results$type)
+
+```
+
+## General observations 
+  
+  * Somewhat poor C.I coverage across all methods and conditions.
+    * High(er) M.C standard error (~1.2%) due to 10,000 iterations vs. 333 iterations. 
+    * Sub-optimal conditions (B = 5 vs. B = 200, m = 5 vs. m = 10)
+
+  * Increased sample size leads to narrower confidence intervals. 
+  * Increased percentage of missing data leads to wider confidence intervals 
+  * Increased sample size leads to higher coverage probability 
+  * Compared to Rubin's Rules, bootstrap methods have more accurate point estimates robust to changes in sample size. 
+  * Bootstrap MI pooled had the highest coverage probability (~89.2% for n = 1000) under uncongeniality 
+  * Bootstrap MI pooled had the least accurate point estimate under uncongeniality, but improved as n increased. 
+  * Rubin's Method had nearly no C.I coverage at high percentages of missing data, even under congeniality. 
+  * Rubin's Method is precise but inaccurate at high percentages of missing data. 
+  
+# Discussion 
+
 
 # References 
 
 <div id="refs"></div>
 
 # Appendix 
+
+## Data 
+```{r, warning=FALSE, echo=FALSE, eval=FALSE}
+# Outputs table of data
+kableExtra::kbl(
+  final_sim_results,
+  col.names = c(
+    'Upper Bound',
+    'Lower Bound',
+    'Variance',
+    'Method',
+    'Type',
+    'Sample Size',
+    '% Missing'
+  ),
+  align = "cccccc",
+  caption = "Aggregate results from the Monte Carlo simulation. ",
+  digits = 2
+) %>%
+  kableExtra::kable_material(c("striped", "hover")) %>%
+  kableExtra::kable_styling(fixed_thead = T)
+```
+
 
 ## Notation 
   
