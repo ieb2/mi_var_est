@@ -51,6 +51,8 @@ Initially, the imputation model utilized by $\texttt{mice()}$ will be uncongenia
 
 
 # Results 
+
+Please see the following [link](https://mi-var-est.shinyapps.io/mi_var_est/) for an interactive presentation of the results. 
 ```{r, echo=FALSE, warning=FALSE}
 # Call in dependencies 
 suppressPackageStartupMessages(library(tidyverse))
