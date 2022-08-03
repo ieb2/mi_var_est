@@ -3,7 +3,7 @@ title: "Jackknife Variance Estimator for Multiply Imputed Response Variables Und
 author: "Ihsan E. Buker & Samantha R. Seals"
 date: '`r Sys.Date()`'
 output: html_document
-#bibliography: bib.bib
+bibliography: bib.bib
 biblio-style: "apalike"
 link_citations: true
 ---
