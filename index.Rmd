@@ -97,6 +97,8 @@ final_sim_results <- final_sim_results %>%
 
 summary_generator <- function(df){
   tibble(
+    "Method" = df$method, 
+    "Imputation Approach" = df$type, 
     "Median C.I width" = median(df$UB - df$LB), 
     "Median estimated variance " = median(df$variance), 
     "Estimated variance (complete)" = case_when(
@@ -113,14 +115,14 @@ grouped_results <- final_sim_results %>%
   group_split() %>%
   purrr::map(., summary_generator) %>%
   lapply(., function(x) slice(x, 1)) %>%
-  lapply(.,function(x) round(x, digits = 2)) %>%
-  do.call(rbind.data.frame, .)
+  do.call(rbind.data.frame, .) %>%
+  mutate_if(is.numeric, round, digits=2)
 ```
 
 ```{r, echo=FALSE}
 suppressPackageStartupMessages(library(kableExtra))
 grouped_results %>%
-  kbl(align = "cccccc") %>%
+  kbl(align = "cccccccc") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   kable_styling(fixed_thead = T)
 ```
