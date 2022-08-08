@@ -146,7 +146,7 @@ ggplot(data = grouped_results,
   ggpubr::stat_overlay_normal_density(color = "red", linetype = "dashed") + 
   ggtitle("Kernel Density Plots of Estimator Bias Across Method and Imputation Approach")
 
-ggsave("point.pdf", device = "pdf", plot = last_plot())
+#ggsave("point.pdf", device = "pdf", plot = last_plot())
 ```
 
 <p style="text-indent: 40px">Kernel density plots are based on probability density estimation, which is a non-parametric method used to estimate the probability density function of a variable. The y-axis of this plot, which represents the probability density, corresponds roughly to the likelihood of observing the corresponding value on the x-axis. The qualifier "roughly" is used here, as the probability of a continuous outcome being observed can only be calculated over a range in the following manner.</p> 
