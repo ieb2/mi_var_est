@@ -2,6 +2,7 @@ library(tidyverse)
 library(shiny)
 library(shinythemes)
 library(latex2exp)
+library(ggpubr)
 set.seed(23479)
 
 results <- read_csv("final_sim_results.csv", show_col_types = FALSE)
