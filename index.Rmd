@@ -4,78 +4,15 @@ author: "Ihsan E. Buker & Samantha R. Seals"
 date: '`r Sys.Date()`'
 output: 
   html_document:
+    toc: true
+    toc_float: true
     theme: flatly
 bibliography: bib.bib
 biblio-style: "apalike"
 link_citations: true
 ---
+<div style="line-height: 2em;">
 
-# Background 
-Missing data is an issue ubiquitous in many fields of science. Given that statistical procedures often require data to be fully observed, there has long been an interest and need to manage missing data in a way that allows researchers to reach valid conclusions. Today, multiple imputation is accepted as the gold standard in missing data analysis, in no short thanks to the work of Donald Rubin [@buuren_flexible_2012]. In 1977, Rubin proposed using multiple completed versions of the dataset with missing observations, applying the complete-data procedure of interest, and pooling the estimates to draw valid inferences [@buuren_flexible_2012]. The main advantage of multiple imputation, as opposed to single imputation, which had been used by researchers since the early 1970s, is its ability to properly estimate the variance caused by missing observations [@Efron_1994]. The emphasis placed on variance and uncertainty by Rubin was a departure from the status quo of the time, which was to fill in the missing observation with the most probable value and to proceed with complete case analyses as if the observation had not been missing, to begin with [@buuren_flexible_2012]. This approach, however, fails to incorporate the loss of information caused by missing observations into the estimation of parameters, resulting in the underestimation of variance [@rubin1978multiple]. 
-
-
-Like all revolutionary ideas, multiple imputation received harsh criticism following its conception. Perhaps the most notable of the objections came from Fay in 1992, who demonstrated through counterexamples that multiple imputation produced biased covariance estimates [@bartlett_bootstrap_2020]. Fay added the need for unison between the imputation and analysis model made multiple imputation a poor general-purpose tool, particularly in instances where the imputer and analyst are different individuals [@fay1992inferences; @buuren_flexible_2012]. Fay's arguments led to the conceptualization of [congeniality](#formal) between the imputation and analysis model, which was later accepted to be a requirement to obtain valid inferences from multiple imputation using Rubin's pooling rules [@buuren_flexible_2012; @meng_multiple-imputation_1994]. Although Fay's work initially criticized biases introduced to the covariance matrix following multiple imputation, a similar phenomenon of biased estimations were observed with variance under uncongeniality [@fay1992inferences; @meng_multiple-imputation_1994; @xie_dissecting_2016]. 
-
-Some of the earliest works demonstrating Rubin's variance estimator to be biased under uncongeniality were from Wang_1998 and Robins in 1998, who also proposed an alternate variance estimator in the same paper [@buuren_flexible_2012]. The variance estimator proposed by Wang and Robins requires the calculation of several quantities, which are not easily accessible to the average statistical practitioner [@bartlett_bootstrap_2020]. The challenging construction of the variance estimator proposed by Wang and Robins has resulted in it receiving little-to-no attention in applied settings [@bartlett_bootstrap_2020]. In an attempt to create a more user-friendly variance estimator in instances of suspected uncongeniality, researchers have proposed combining resampling methods with multiple imputation. Of the two main resampling methods, bootstrap has received more attention from multiple imputation researchers compared to jackknife resampling, which has mostly been investigated under single hot-deck imputation. Although particular combinations of bootstrap and multiple imputation have been demonstrated to create asymptotically unbiased estimates of variance, the associated computational cost makes this an active area of research [@bartlett_bootstrap_2020]. Most recently, von Hippel has proposed a bootstrap variance estimator which addresses the issue of computational cost; however, it has been demonstrated to create confidence intervals that are slightly wider compared to traditional bootstrap and multiple imputation combinations [@bartlett_bootstrap_2020]. Given the lower computational cost associated with jackknife resampling, as well as desirable properties demonstrated under single imputation, such as being unbiased in certain scenarios, it is an attractive alternative that should be considered as a variance estimator of multiply imputed data under uncongeniality [@chen_jackknife_2001; @rao_jackknife_1992].  
-
-# Research Goals 
-
-## Long-Term 
-The long-term goal of this research project is to develop a jackknife variance estimator that can provide asymptotically unbiased estimates under uncongeniality at a reasonable computational cost, namely, one that can easily be attained in applied settings. The long-term goals of this research project may be particularized by the following set of questions presented. 
-
-  * What are the properties of the jackknife variance estimator in multiply imputed datasets, namely, datasets containing missing outcome variables imputed through predictive mean matching? 
-    
-  * In what manner should the jackknife estimator be combined with multiple imputation to obtain an estimator with desirable characteristics? 
-    
-  * How do the characteristics of the response variable, such as the proportion of missingness, and the number of observations influence the performance of the proposed jackknife variance estimator? 
-    
-   * How does the proposed jackknife variance estimator compare to Rubin's rules, and bootstrap resampling methods in estimating the variance of multiply imputed variables under uncongeniality?
-    
-   * If any bias is noted in the variance estimates obtained through the jackknife estimator, are they negligible given the decreased computational cost? 
-
-## Short-Term 
-The short-term goal of this research project was to examine various characteristics of robust variance estimation methods in the literature, such as the bias of the point estimator, confidence interval width, coverage probability, and computational cost. The methods examined draw from Bayesian and frequentist frameworks to construct various estimators using bootstrap resampling combined with multiple imputation. The short-term goals of this project may be particularized by the following set of questions presented. 
-
-  * How does the quality of the point estimator obtained by different methods vary under differing sample sizes, percentage of missing data, and congeniality? 
-  
-  * How do the characteristics of the confidence interval obtained by different methods vary under differing sample sizes, percentage of missing data, and congeniality? 
-  
-  * How does the computational expense of the different methods compare to one another, and can they realistically be performed in applied settings? 
-
-   
-# Research Methods 
-
-For the proposed Monte Carlo simulation, $N$ = 999 datasets will be generated with the following characteristics: A response variable, $Y$, with $p_{miss} \in \{0.10, 0.30, 0.50\}$ proportion of missing observations, where the mechanism of missingness is missing at random (MAR), and an $n \times q$ matrix of fully observed covariates, where $n \in \{500, 1000, 10000\}$ is the sample size, and $q = 3$ is the number of covariates. Moreover, two of the covariates will be simulated such that there is an interaction between them.During the imputation phase of the study, the uncongenial imputation model will ignore such interaction, whereas the congenial imputation model will accommodate it by imputing the data in two different parts.
-
-Each of the $N$ datasets generated with the foregoing characteristics will be imputed using the $\texttt{mice()}$ function. In order to determine $m$, which represents the number of complete datasets to be generated per $N$, von Hippel's two-stage $m$ calculator will be utilized [@von_Hippel_2020]. The imputation process will be visually monitored for convergence using a pilot study with small $N$, which will help determine the maximum number of iterations each combination of $N$ and $m$ are allowed to go through. Finally, the imputation method for the outcome variable will be predictive mean matching. 
-
-Initially, the imputation model utilized by $\texttt{mice()}$ will be uncongenial to the analysis model, per the definition of congeniality set forth in Appendix B. Thereafter, the analysis model of interest to estimate $\theta$ will be applied to each of the $m$ datasets, and $\text{var}(\hat{\theta})$ will be estimated using the jackknife estimator. The foregoing process will be repeated under a congenial imputation and analysis model pairing, which will serve as the control. All analyses will be conducted using $\texttt{R}$ 4.2.1 (Funny-Looking Kid), alongside $\texttt{mice}$ 3.14.0, $\texttt{rsample}$ 1.0.0, $\texttt{bootImpute}$ 1.2.0, and $\texttt{tidyverse}$ 1.3.1. 
-
-
-# Results 
-
-Please see the following [link](https://mi-var-est.shinyapps.io/mi_var_est/) for an interactive presentation of the results accompanied by visuals, and [Data] for the complete set of results only. 
-
-## General observations 
-On a general note, somewhat poor confidence interval coverage was noted across all methods and conditions, particularly compared to other results in the literature; however, this is likely caused by the rather low number of iterations the Monte Carlo simulation was allowed to proceed through, as well as the sub-optimal conditions the methods were allowed to go through. For instance, in one comparable study, the authors performed 10,000 iterations of the Monte Carlo study, while this study was only able to perform 333 due to memory issues. Likewise, the foregoing study used 200 resamples for bootstrap-based methods, while this study was only able to use 5 bootstrap resamples due to challenges in memory. Finally, although somewhat less drastic compared to the other differences, this study was only able to use 5 multiply imputed datasets, while the foregoing study in the literature was able to use 10. 
-
-Given the foregoing conditions, however, the results obtained here were still consistent with what was noted in the literature.  The lower coverage obtained, as well as the small biases noted in the point estimators are likely explained by the high Monte Carlo standard error caused due to the small number of iterations. 
-
-Regardless, we noted the following trends in the simulation as being worthwhile for further study. An increased sample size led to narrower confidence intervals, which is reasonable given the inverse square root of the sample size relationship between confidence interval width and sample size. CI depends on (among other things) the standard error of an appropriate estimator. As you know, the standard error has an inverse relationship with the sample size and so will decrease as n gets larger. At an intuitive level, a larger sample will contain more information about the population parameter of interest, and we can therefore be more precise in our estimation of it. Somewhat paradoxically, however, increased sample size led to higher coverage probability, although the confidence intervals got narrower. This is likely due to improvements in the point estimation. 
-
-It was also noted that at higher percentages of missing data, Rubin's rules began producing less accurate point estimates with narrower confidence intervals compared to bootstrap-based methods. 
-
-In general, across most conditions, it was noted that the bootstrap MI pooled method had the highest coverage probability under uncongeniality; however, also had the least accurate point estimates which improved as the sample size increased.  
-  
-# Discussion 
-
-# References 
-
-<div id="refs"></div>
-
-# Appendix 
-
-## Data 
 ```{r, warning=FALSE, echo=FALSE, eval=TRUE, include=FALSE}
 # Call in dependencies 
 suppressPackageStartupMessages(library(tidyverse))
@@ -119,7 +56,114 @@ grouped_results <- final_sim_results %>%
   mutate_if(is.numeric, round, digits=2)
 ```
 
-```{r, echo=FALSE}
+# Background 
+<p style="text-indent: 40px">Missing data is an issue ubiquitous in many fields of science. Given that statistical procedures often require data to be fully observed, there has long been an interest and need to manage missing data in a way that allows researchers to reach valid conclusions. Today, multiple imputation is accepted as the gold standard in missing data analysis, in no short thanks to the work of Donald Rubin [@buuren_flexible_2012]. In 1977, Rubin proposed using multiple completed versions of the dataset with missing observations, applying the complete-data procedure of interest, and pooling the estimates to draw valid inferences [@buuren_flexible_2012]. The main advantage of multiple imputation, as opposed to single imputation, which had been used by researchers since the early 1970s, is its ability to properly estimate the variance caused by missing observations [@Efron_1994]. The emphasis placed on variance and uncertainty by Rubin was a departure from the status quo of the time, which was to fill in the missing observation with the most probable value and to proceed with complete case analyses as if the observation had not been missing, to begin with [@buuren_flexible_2012]. This approach, however, fails to incorporate the loss of information caused by missing observations into the estimation of parameters, resulting in the underestimation of variance [@rubin1978multiple].</p>
+
+<p style="text-indent: 40px">Like all revolutionary ideas, multiple imputation received harsh criticism following its conception. Perhaps the most notable of the objections came from Fay in 1992, who demonstrated through counterexamples that multiple imputation produced biased covariance estimates [@bartlett_bootstrap_2020]. Fay added the need for unison between the imputation and analysis model made multiple imputation a poor general-purpose tool, particularly in instances where the imputer and analyst are different individuals [@fay1992inferences; @buuren_flexible_2012]. Fay's arguments led to the conceptualization of [congeniality](#formal) between the imputation and analysis model, which was later accepted to be a requirement to obtain valid inferences from multiple imputation using Rubin's pooling rules [@buuren_flexible_2012; @meng_multiple-imputation_1994]. Although Fay's work initially criticized biases introduced to the covariance matrix following multiple imputation, a similar phenomenon of biased estimations were observed with variance under uncongeniality [@fay1992inferences; @meng_multiple-imputation_1994; @xie_dissecting_2016].</p> 
+
+<p style="text-indent: 40px">Some of the earliest works demonstrating Rubin's variance estimator to be biased under uncongeniality were from [@Wang_1998] and Robins in 1998, who also proposed an alternate variance estimator in the same paper [@buuren_flexible_2012]. The variance estimator proposed by Wang and Robins requires the calculation of several quantities, which are not easily accessible to the average statistical practitioner [@bartlett_bootstrap_2020]. The challenging construction of the variance estimator proposed by Wang and Robins has resulted in it receiving little-to-no attention in applied settings [@bartlett_bootstrap_2020]. In an attempt to create a more user-friendly variance estimator in instances of suspected uncongeniality, researchers have proposed combining resampling methods with multiple imputation. Of the two main resampling methods, bootstrap has received more attention from multiple imputation researchers compared to jackknife resampling, which has mostly been investigated under single hot-deck imputation. Although particular combinations of bootstrap and multiple imputation have been demonstrated to create asymptotically unbiased estimates of variance, the associated computational cost makes this an active area of research [@bartlett_bootstrap_2020]. Most recently, von Hippel has proposed a bootstrap variance estimator which addresses the issue of computational cost; however, it has been demonstrated to create confidence intervals that are slightly wider compared to traditional bootstrap and multiple imputation combinations [@bartlett_bootstrap_2020]. Given the lower computational cost associated with jackknife resampling, as well as desirable properties demonstrated under single imputation, such as being unbiased in certain scenarios, it is an attractive alternative that should be considered as a variance estimator of multiply imputed data under uncongeniality [@chen_jackknife_2001; @rao_jackknife_1992].</p>  
+
+# Research Goals {.tabset .tabset-fade .tabset-pills}
+
+## Long-Term 
+<p style="text-indent: 40px">The long-term goal of this research project is to develop a jackknife variance estimator that can provide asymptotically unbiased estimates under uncongeniality at a reasonable computational cost, namely, one that can easily be attained in applied settings. The long-term goals of this research project may be particularized by the following set of questions presented.</p> 
+
+  * What are the properties of the jackknife variance estimator in multiply imputed datasets, namely, datasets containing missing outcome variables imputed through predictive mean matching? 
+    
+  * In what manner should the jackknife estimator be combined with multiple imputation to obtain an estimator with desirable characteristics? 
+    
+  * How do the characteristics of the response variable, such as the proportion of missingness, and the number of observations influence the performance of the proposed jackknife variance estimator? 
+    
+   * How does the proposed jackknife variance estimator compare to Rubin's rules, and bootstrap resampling methods in estimating the variance of multiply imputed variables under uncongeniality?
+    
+   * If any bias is noted in the variance estimates obtained through the jackknife estimator, are they negligible given the decreased computational cost? 
+
+## Short-Term 
+<p style="text-indent: 40px">The short-term goal of this research project was to examine various characteristics of robust variance estimation methods in the literature, such as the bias of the point estimator, confidence interval width, coverage probability, and computational cost. The methods examined draw from Bayesian and frequentist frameworks to construct various estimators using bootstrap resampling combined with multiple imputation. The short-term goals of this project may be particularized by the following set of questions presented.</p> 
+
+  * How does the quality of the point estimator obtained by different methods vary under differing sample sizes, percentage of missing data, and congeniality? 
+  
+  * How do the characteristics of the confidence interval obtained by different methods vary under differing sample sizes, percentage of missing data, and congeniality? 
+  
+  * How does the computational expense of the different methods compare to one another, and can they realistically be performed in applied settings? 
+
+   
+# Research Methods
+
+<p style="text-indent: 40px">For the proposed Monte Carlo simulation, $N$ = 999 datasets will be generated with the following characteristics: A response variable, $Y$, with $p_{miss} \in \{0.10, 0.30, 0.50\}$ proportion of missing observations, where the mechanism of missingness is missing at random (MAR), and an $n \times q$ matrix of fully observed covariates, where $n \in \{500, 1000, 10000\}$ is the sample size, and $q = 3$ is the number of covariates. Moreover, two of the covariates will be simulated such that there is an interaction between them. During the imputation phase of the study, the uncongenial imputation model will ignore such interaction, whereas the congenial imputation model will accommodate it by imputing the data in two different parts.</p>
+
+<p style="text-indent: 40px">Each of the $N$ datasets generated with the foregoing characteristics will be imputed using the $\texttt{mice()}$ function. In order to determine $m$, which represents the number of complete datasets to be generated per $N$, von Hippel's two-stage $m$ calculator will be utilized [@von_Hippel_2020]. The imputation process will be visually monitored for convergence using a pilot study with small $N$, which will help determine the maximum number of iterations each combination of $N$ and $m$ are allowed to go through. Finally, the imputation method for the outcome variable will be predictive mean matching.</p> 
+
+<p style="text-indent: 40px">Initially, the imputation model utilized by $\texttt{mice()}$ will be uncongenial to the analysis model, per the definition of congeniality set forth in the appendix. Thereafter, the analysis model of interest to estimate $\theta$ will be applied to each of the $m$ datasets, and $\text{var}(\hat{\theta})$ will be estimated using the jackknife estimator. The foregoing process will be repeated under a congenial imputation and analysis model pairing, which will serve as the control. All analyses will be conducted using $\texttt{R}$ 4.2.1 (Funny-Looking Kid), alongside $\texttt{mice}$ 3.14.0, $\texttt{rsample}$ 1.0.0, $\texttt{bootImpute}$ 1.2.0, and $\texttt{tidyverse}$ 1.3.1.</p> 
+
+# Results 
+
+<p style="text-indent: 40px">Please see the following [link](https://mi-var-est.shinyapps.io/mi_var_est/) for an interactive presentation of the results accompanied by visuals, and [Data] for the complete set of results only.</p> 
+
+## General observations 
+<p style="text-indent: 40px">Upon examining the results of the Monte Carlo simulation broadly, somewhat poor confidence interval coverage was noted across all methods and conditions, particularly compared to results obtained by other researchers. However, these results were most likely caused by the low number of iterations the Monte Carlo simulation went through, as well as the suboptimal conditions under which the methods were tested. For instance, in one comparable study conducted by @bartlett_bootstrap_2020, the Monte Carlo simulation proceeded for 10,000 iterations, while in this study, only 333 iterations took place due to memory issues. Likewise, Bartlett and Hughes used 200 bootstrap resamples for bootstrap-based methods, whereas this study was only able to use five. Finally, although somewhat less drastic compared to the other differences noted, this study was only able to use five multiply imputed datasets, while the Bartlett and Hughes study used 10. For this particular dataset, however, the ideal number of multiply imputed datasets would be approximately 25, as that is the number at which the Markov Chain Monte Carlo (MCMC) underlying the imputation process begins to converge. Given the foregoing conditions, however, the results obtained here were still consistent with other studies in the literature. The lower coverage obtained and the small biases noted in the point estimators are explained by the high Monte Carlo standard error, as well as the other conditions, which are more specific to the method examined.Regardless, we noted the following trends in the simulation as being worthwhile for further study.</p> 
+
+<p style="text-indent: 40px">With that being said, the following trends observed in the simulation are worthwhile for further study and discussion. Increases in sample size were met with narrower confidence intervals, which is not surprising, given the inverse square root relationship between margin of error and sample size. Somewhat paradoxically, however, increased sample size led to higher coverage probability, although the confidence intervals got narrower, which is likely due to improvements in the point estimation. Moreover, it was noted that at higher percentages of missing data, Rubin's rules began producing less accurate point estimates with narrower confidence intervals compared to bootstrap-based methods, which, rightly so, began producing wider confidence intervals as the percentage of missing data increased. Interestingly, the performance of the point estimates in bootstrap-based methods did not vary significantly as the percentage of missing data increased; however, was worse than the estimates provided by Rubin's rules under congeniality and low percentages of missing data. Finally, across most conditions, it was noted that the bootstrap MI pooled method had the highest coverage probability under uncongeniality; however, also had the least accurate point estimates, which improved as the sample size increased.</p>  
+  
+# Discussion 
+
+```{r,echo=FALSE, warning=FALSE}
+levels(grouped_results$`Imputation Approach`) <- c("Congenial", "Uncongenial")
+ggplot(data = grouped_results, aes(`C.I Coverage (95%)`, col =`Method`)) + 
+  stat_ecdf(geom = "step", size=2) + 
+  facet_grid(`Imputation Approach` ~ .) + 
+  theme_bw() + 
+  theme(axis.title.y = element_blank(), 
+        panel.spacing=unit(1.5,"lines")) + 
+  ggtitle("ECDF Plot of C.I Coverage Across Method and Imputation Approach") + 
+  xlim(0,100) 
+
+#ggsave("CI_cov.pdf", device = "pdf", plot = last_plot())
+```
+
+<p style="text-indent: 40px">ECDF, which stands for empirical cumulative distribution function, is a step-wise function associated with the distribution of the sample. The y-axis of this plot, which represents the cumulative probability, corresponds to the fraction of observations of the measured variable that are less than or equal to the corresponding value on the x-axis.</p> 
+
+<p style="text-indent: 40px">As the number of samples tends to infinity, the 95% confidence interval generated from each of the samples should contain the true parameter in 95% of the instances. This property of confidence intervals, however, holds only when the population is normally distributed or when the sample sizes are large enough that the central limit theorem grants convergence to the normal distribution. However, normality or large samples are not always found in practice. As such, simulation studies, such as the one conducted here, can be used to estimate coverage probability under different circumstances. Ideally, the coverage probability should equal the confidence level, which, in this graph, would be indicated by a line $y \approx 0$ up until $x \approx 95$, a sharp peak at $x = 95$, and $y = 1$ thereafter, until $x = 100$.</p> 
+
+<p style="text-indent: 40px">However, we see that not to be the case here, with nearly all of the methods experiencing a steep increase at $x \approx 75$. Perhaps the most notable, particularly under the congenial case, trend here is Rubin's method, which has rather poor confidence interval coverage that peaks out at $\approx 70\%$. This could, very broadly, be interpreted as an indication to utilize bootstrap-based variance estimation whenever possible over Rubin's rules, despite their computation cost. </p> 
+
+
+```{r,echo=FALSE, warning=FALSE}
+levels(grouped_results$`Imputation Approach`) <- c("Congenial", "Uncongenial")
+
+ggplot(data = grouped_results,
+       aes(`Median estimated variance ` - `Estimated variance (complete)`)) + 
+  geom_density(aes(y = ..density..)) + 
+  facet_grid(`Imputation Approach` ~ `Method`) +
+  theme(axis.title.y = element_blank(), 
+        panel.spacing=unit(1.5,"lines")) + 
+  theme_bw() + 
+  theme(axis.title.y = element_blank(), 
+        panel.spacing=unit(1.5,"lines"), 
+        strip.text = element_text(
+    size = 9)) + 
+  xlab("Bias of variance estimator") + 
+  ggpubr::stat_overlay_normal_density(color = "red", linetype = "dashed") + 
+  ggtitle("Kernel Density Plots of Estimator Bias Across Method and Imputation Approach")
+
+ggsave("point.pdf", device = "pdf", plot = last_plot())
+```
+
+<p style="text-indent: 40px">Kernel density plots are based on probability density estimation, which is a non-parametric method used to estimate the probability density function of a variable. The y-axis of this plot, which represents the probability density, corresponds roughly to the likelihood of observing the corresponding value on the x-axis. The qualifier "roughly" is used here, as the probability of a continuous outcome being observed can only be calculated over a range in the following manner.</p> 
+
+<p style="text-indent: 40px">Say, we want to estimate the probability of the estimator $\hat \theta$ being unbiased (i.e., $\lvert\theta - \hat \theta\rvert = 0$). Let $X$ be the bias of the estimator $\hat \theta$. We would need to select two $X$ values such that the desired outcome $X = C$ where $C \in \text{dom}(f)$ is flanked. Let the greater of such values be $a = X + \epsilon$, and the lesser be $b = X - \epsilon$. Thereafter, $\int^a_b{f(x) \ dx} = P[X \in (a,b)]$ where $f(x)$ is the probability density function of $X$.</p>  
+  
+<p style="text-indent: 40px">Continuing with the slightly misleading terminology noted earlier. It is observed that all estimation methods under congeniality are described with greater accuracy by a normal distribution compared to the cases under uncongeniality. Except for the Boot MI Pooled approach, all estimators under uncongeniality appear to be slightly conservative (i.e. positive biases have a higher probability of being observed). This observation is particularly notable with Rubin's method, which appears to be the most conservative among the estimators examined.</p>   
+
+# References 
+
+<div id="refs"></div>
+
+# Appendix 
+
+## Data 
+
+```{r, echo=FALSE, warning=FALSE}
 suppressPackageStartupMessages(library(kableExtra))
 grouped_results %>%
   kbl(align = "cccccccc") %>%
@@ -139,7 +183,7 @@ grouped_results %>%
   * The analyst's complete-data procedure is summarized by $\mathscr{P}_{com} = [\hat{Q}(X, Y_{inc}), U(X, Y_{inc})]$,   where $\hat{Q}(X, Y_{inc})$ is an estimator of $Q$ with associated variance $U(X, Y_{inc}.)$ 
   * $R$ is not a part of $\mathscr{P}_{com}$, as the missing at random assumption implies that the response behavior itself carries no information about $Q$. 
 
-## Formal Definition of Congeniality {#formal} 
+## Formal Definition of Congeniality {#formal .tabset .tabset-fade .tabset-pills}
 
 In short, one may define congeniality as the imputer and analyst making different assumptions regarding the data. The following two-part formal definition of uncongeniality was proposed by Meng in 1994, and will be utilized in our research. Meeting the assumptions set forth in the following two definitions qualifies the imputation model as being congenial to the analysis model, or vice versa. 
 
@@ -164,3 +208,4 @@ If the foregoing conditions are met, $f$ is said to be second-moment congenial t
 ### Definition 2 
 
 The analysis procedure $\mathscr{P}$ is said to be congenial to the imputation model $g(Y_{miss}|Z_o, A)$ where $A$ represents possible additional data the imputer has access to, if one can find an $f$ such that (**i**) $f$ is congenial to $\mathscr{P}$ and (**ii**) the posterior predictive density for $Y_{miss}$ derived under $f$ is identical to the imputation model $f(Y_{miss}|Z_o) = g(Y_{miss}|Z_o, A) \ \forall \ Y_{miss}$.  
+</div>
