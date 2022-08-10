@@ -2,19 +2,17 @@ library(tidyverse)
 library(shiny)
 library(shinythemes)
 library(latex2exp)
-library(ggpubr)
-
 set.seed(23479)
 
-results <- read.csv("https://raw.github.com/ieb2/mi_var_est/master/final_sim_results.csv")
+results <- read_csv("final_sim_results.csv", show_col_types = FALSE)
 results$method <- as.factor(results$method)
 results$type <- as.factor(results$type)
 
-final_sim_results <- results %>%
-    mutate(true_var = case_when(
-        n == 500 ~ 9.52, 
-        n == 1000 ~ 6.32, 
-        n == 10000 ~ 7.48))
+results <- results %>%
+  mutate(true_var = case_when(
+    n == 500 ~ 9.52, 
+    n == 1000 ~ 6.32, 
+    n == 10000 ~ 7.48))
 
 methods <- 
   list(
@@ -29,6 +27,9 @@ sample_sizes <-
   list(500, 1000, 10000)
 p_miss <- 
   list("10%" = 0.1, "30%" = 0.3, "50%" = 0.5)
+
+final_sim_results <- suppressMessages(read_csv("final_sim_results.csv") %>%
+                                        dplyr::select(-"...1"))
 
 # Organize data 
 final_sim_results$method <- as.factor(final_sim_results$method)
@@ -73,67 +74,50 @@ ui <- fluidPage(theme = shinytheme("cerulean"),
                 
                 # Sidebar with a slider input for number of bins 
                 sidebarLayout(
-                    sidebarPanel(
-                        selectInput("method_select", 
-                                    label = "Select variance estimation method.", 
-                                    choices = methods,
-                                    selected = NULL,
-                                    multiple = FALSE, 
-                                    selectize = FALSE,
-                                    size = 5), 
-                        selectInput("type_select", 
-                                    label = "Select imputation method.", 
-                                    choices = types,
-                                    selected = NULL,
-                                    multiple = FALSE, 
-                                    selectize = FALSE,
-                                    size = 5), 
-                        selectInput("sample_size_select", 
-                                    label = "Select sample size.", 
-                                    choices = sample_sizes,
-                                    selected = NULL,
-                                    multiple = FALSE, 
-                                    selectize = FALSE,
-                                    size = 5), 
-                        selectInput("percent_missing_select", 
-                                    label = "Select percent of missing data.", 
-                                    choices = p_miss,
-                                    selected = NULL,
-                                    multiple = FALSE, 
-                                    selectize = FALSE,
-                                    size = 5), 
-                        tableOutput("summary_stats")
-                    ),
+                  sidebarPanel(
+                    selectInput("method_select", 
+                                label = "Select variance estimation method.", 
+                                choices = methods,
+                                selected = NULL,
+                                multiple = FALSE, 
+                                selectize = FALSE,
+                                size = 5), 
+                    selectInput("type_select", 
+                                label = "Select imputation method.", 
+                                choices = types,
+                                selected = NULL,
+                                multiple = FALSE, 
+                                selectize = FALSE,
+                                size = 5), 
+                    selectInput("sample_size_select", 
+                                label = "Select sample size.", 
+                                choices = sample_sizes,
+                                selected = NULL,
+                                multiple = FALSE, 
+                                selectize = FALSE,
+                                size = 5), 
+                    selectInput("percent_missing_select", 
+                                label = "Select percent of missing data.", 
+                                choices = p_miss,
+                                selected = NULL,
+                                multiple = FALSE, 
+                                selectize = FALSE,
+                                size = 5), 
+                    tableOutput("summary_stats")
+                  ),
+                  
+                  # Show a plot of the generated distribution and the dataset 
+                  mainPanel(
+                    plotOutput("distPlot", width = "100%"),
+                    plotOutput("kernel"),
+                    dataTableOutput('table')
                     
-                    # Show a plot of the generated distribution and the dataset 
-                    mainPanel(
-                        plotOutput("distPlot", width = "100%"),
-                        plotOutput("kernel"),
-                        dataTableOutput('table')
-                        
-                    )
+                  )
                 )
 )
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-  
-  output$ecdf <- renderPlot({ 
-    df <- grouped_results %>%
-      dplyr::filter(`Method` == as.name(input$"method_select")) %>%
-      dplyr::filter(`Imputation Approach` == as.name(input$"type_select")) %>%
-      dplyr::filter(`Sample Size` == as.name(input$"sample_size_select")) %>%
-      dplyr::filter(`Percentage of Missing Data` == as.name(input$"percent_missing_select"))
-    
-    levels(grouped_results$`Imputation Approach`) <- c("Congenial", "Uncongenial")
-    
-    ggplot(data = df, aes(`C.I Coverage (95%)`)) + 
-      stat_ecdf(geom = "step", size=1) + 
-      theme_bw() + 
-      theme(axis.title.y = element_blank(), 
-            panel.spacing=unit(1,"lines")) + 
-      xlim(0,100)
-  })
   
   output$kernel <- renderPlot({ 
     df <- results %>%
@@ -201,8 +185,8 @@ server <- function(input, output) {
     
     
   })
-    
-    
+  
+  
 }
 
 # Run the application 
