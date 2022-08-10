@@ -3,14 +3,14 @@ library(shiny)
 library(shinythemes)
 library(latex2exp)
 library(ggpubr)
+
 set.seed(23479)
 
-results <- read_csv("final_sim_results.csv", show_col_types = FALSE)
+results <- read.csv("https://raw.github.com/ieb2/mi_var_est/master/final_sim_results.csv")
 results$method <- as.factor(results$method)
 results$type <- as.factor(results$type)
 
-results <- results %>%
-    dplyr::select(-"...1") %>%
+final_sim_results <- results %>%
     mutate(true_var = case_when(
         n == 500 ~ 9.52, 
         n == 1000 ~ 6.32, 
@@ -29,9 +29,6 @@ sample_sizes <-
   list(500, 1000, 10000)
 p_miss <- 
   list("10%" = 0.1, "30%" = 0.3, "50%" = 0.5)
-
-final_sim_results <- suppressMessages(read_csv("final_sim_results.csv") %>%
-                                        dplyr::select(-"...1"))
 
 # Organize data 
 final_sim_results$method <- as.factor(final_sim_results$method)
