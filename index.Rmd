@@ -97,7 +97,7 @@ grouped_results <- final_sim_results %>%
 The analysis model of interest is as follows, 
 
 $$
-Y \sim V_1 + V_2 + V_3 + V_2:V_3+\epsilon
+Y \sim V_1 + V_2 + V_3 + V_2:V_3 + \epsilon
 $$
 where the congenial imputation model is 
 
